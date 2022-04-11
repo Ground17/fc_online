@@ -143,7 +143,7 @@ class Match {
 
   final List<Player> players;
 
-  final int screen; // 포메이션 보기(0, 기본), 어시스트/슛 보기(1), 터치 시 화면 바꾸가
+  int screen; // 포메이션 보기(0, 기본), 어시스트/슛 보기(1), 터치 시 화면 바꾸가
 
   Match({
     required this.matchId,
@@ -159,6 +159,7 @@ class Player { // 실제 유저의 매치 정보
   final String nickname;
   final List<NPC> npcs;
   final List<Shoot> shootings;
+  final int goal;
   final int shootTotal; // 슈팅
   final int effectiveShootTotal; // 유효슈팅
   final int possession; // 점유율
@@ -173,6 +174,7 @@ class Player { // 실제 유저의 매치 정보
     required this.nickname,
     required this.npcs,
     required this.shootings,
+    required this.goal,
     required this.shootTotal,
     required this.effectiveShootTotal,
     required this.possession,
@@ -191,7 +193,7 @@ class NPC {
 
   final int goal;
   final int assist;
-  final int rating;
+  final double rating;
 
   // 아래부터는 대충 중요도순
   final int shoot; // 슈팅

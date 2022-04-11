@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:convert';
 
@@ -29,22 +31,21 @@ class _MyChangeState extends State<DetailApp> {
 
   int index = 1;
 
-  late List<dynamic> spid;
-  late List<dynamic> seasonid;
-  late List<dynamic> spposition;
-  late List<dynamic> division;
+  late Map<int, dynamic> spid;
+  late Map<int, dynamic> seasonid;
 
   String title = ""; // 최종 등급
 
   DateTime now = DateTime.now();
-
-  DateTime endDate = DateTime.now();
 
   final cells = [];
 
   int win = 0;
   int draw = 0;
   int lose = 0;
+
+  int scoringPoint = 0;
+  int losingPoint = 0;
 
   late File recent;
   late List<dynamic> players;
@@ -53,11 +54,17 @@ class _MyChangeState extends State<DetailApp> {
 
   void _init() async { /// TODO: 등급도 추가하기
     dir = (await getApplicationDocumentsDirectory()).path;
-    spid = jsonDecode(File('$dir/spid.json').readAsStringSync());
-    seasonid = jsonDecode(File('$dir/seasonid.json').readAsStringSync());
-    spposition =
-        jsonDecode(File('$dir/spposition.json').readAsStringSync());
-    division = jsonDecode(File('$dir/division.json').readAsStringSync());
+    final spid_json = jsonDecode(File('$dir/spid.json').readAsStringSync());
+    final seasonid_json = jsonDecode(File('$dir/seasonid.json').readAsStringSync());
+
+    for (int i = 0; i < spid_json.length; i++) {
+      spid[spid_json[i]['id']] = {'name': spid_json[i]['name']};
+    }
+
+    for (int i = 0; i < seasonid_json.length; i++) {
+      seasonid[spid_json[i]['seasonId']] = {'className': spid_json[i]['className'], 'seasonImg': spid_json[i]['seasonImg']};
+    }
+
     recent = File('$dir/recent.txt');
     players = jsonDecode(recent.readAsStringSync());
 
@@ -88,19 +95,16 @@ class _MyChangeState extends State<DetailApp> {
       win = 0;
       draw = 0;
       lose = 0;
+      scoringPoint = 0;
+      losingPoint = 0;
     });
 
     List<MaxDivision> maxdivisions = await API.maxdivision(widget.id);
     for (final maxdivision in maxdivisions) {
       if (maxdivision.matchType == widget.matchtype) {
-        for (final div in division) {
-          if (maxdivision.division == div["divisionId"]) {
-            setState(() {
-              title = div["divisionName"];
-            });
-            break;
-          }
-        }
+        setState(() {
+          title = division[maxdivision.division]!["divisionName"]!;
+        });
         break;
       }
     }
@@ -108,30 +112,96 @@ class _MyChangeState extends State<DetailApp> {
     List<String> matchIds = await API.matchIds(widget.id, matchtype: widget.matchtype);
 
     for (final matchId in matchIds) {
-      var shortcut = await API.match(matchId);
+      final details = await API.match(matchId);
+      int matchResult = 0; // 0: win, 1: draw, 2: lose
 
-      // cells.add(Cells(
-      //   clicked: false,
-      //   matchId: shortcut[i]["matchId"],
-      //   trackId: shortcut[i]["trackId"],
-      //   trackName: trackName,
-      //   startTime: DateFormat('yyyy-MM-dd HH:mm:ss')
-      //       .parse(shortcut[i]["startTime"].toString().replaceFirst("T", " "))
-      //       .add(Duration(hours: 9)),
-      //   endTime: DateFormat('yyyy-MM-dd HH:mm:ss')
-      //       .parse(shortcut[i]["endTime"].toString().replaceFirst("T", " "))
-      //       .add(Duration(hours: 9)),
-      //   matchTime: shortcut[i]["player"]["matchTime"] != ""
-      //       ? int.parse(shortcut[i]["player"]["matchTime"])
-      //       : 0,
-      //   playerCount: shortcut[i]["playerCount"],
-      //   rank: shortcut[i]["player"]["matchRank"] != "" && shortcut[i]["player"]["matchRank"] != "0"
-      //       ? int.parse(shortcut[i]["player"]["matchRank"])
-      //       : 99,
-      // ));
-      // if (shortcut[i]["player"]["matchWin"] != "0") {
-      //   win++;
-      // }
+      List<Player> players = [];
+
+      for (int i = 0; i < details['matchInfo']!.length; i++) {
+        final matchInfo = details['matchInfo'][i];
+
+        List<NPC> npcs = [];
+        for (int j = 0; j < matchInfo['player']!.length; j++) {
+          npcs.add(NPC(
+            spId: matchInfo['player'][j]['spId'],
+            grade: matchInfo['player'][j]['spGrade'],
+            position: matchInfo['player'][j]['spPosition'],
+            goal: matchInfo['player'][j]['status']['goal'],
+            assist: matchInfo['player'][j]['status']['assist'],
+            rating: matchInfo['player'][j]['status']['spRating'],
+            shoot: matchInfo['player'][j]['status']['shoot'],
+            effectiveShoot: matchInfo['player'][j]['status']['effectiveShoot'],
+            passTry: matchInfo['player'][j]['status']['dribbleTry'],
+            passSuccess: matchInfo['player'][j]['status']['passSuccess'],
+            dribbleTry: matchInfo['player'][j]['status']['dribbleTry'],
+            dribbleSuccess: matchInfo['player'][j]['status']['dribbleSuccess'],
+            ballPossesionTry: matchInfo['player'][j]['status']['ballPossesionTry'],
+            ballPossesionSuccess: matchInfo['player'][j]['status']['ballPossesionSuccess'],
+            aerialTry: matchInfo['player'][j]['status']['aerialTry'],
+            aerialSuccess: matchInfo['player'][j]['status']['aerialSuccess'],
+            blockTry: matchInfo['player'][j]['status']['blockTry'],
+            block: matchInfo['player'][j]['status']['block'],
+            tackleTry: matchInfo['player'][j]['status']['tackleTry'],
+            tackle: matchInfo['player'][j]['status']['tackle'],
+            intercept: matchInfo['player'][j]['status']['intercept'],
+            defending: matchInfo['player'][j]['status']['defending'],
+            yellowCards: matchInfo['player'][j]['status']['yellowCards'],
+            redCards: matchInfo['player'][j]['status']['redCards'],
+          ));
+        }
+
+        List<Shoot> shootings = [];
+        for (int j = 0; j < matchInfo['shootDetail']!.length; j++) {
+          shootings.add(Shoot(
+            assist: matchInfo['shootDetail'][j]['assist'],
+            result: matchInfo['shootDetail'][j]['result'],
+            assistX: matchInfo['shootDetail'][j]['assistX'],
+            assistY: matchInfo['shootDetail'][j]['assistY'],
+            x: matchInfo['shootDetail'][j]['x'],
+            y: matchInfo['shootDetail'][j]['y'],
+          ));
+        }
+
+        players.add(Player(
+          accessId: matchInfo['accessId'],
+          nickname: matchInfo['nickname'],
+          npcs: npcs,
+          shootings: shootings,
+          goal: matchInfo['shoot']!['goalTotal'],
+          shootTotal: matchInfo['shoot']!['shootTotal'],
+          effectiveShootTotal: matchInfo['shoot']!['effectiveShootTotal'],
+          possession: matchInfo['matchDetail']!['possession'],
+          passSuccessRate: matchInfo['pass']!['passSuccess'] / matchInfo['pass']!['passTry'],
+          tackleSuccess: matchInfo['defence']!['tackleSuccess'],
+          cornerKick: matchInfo['matchDetail']!['cornerKick'],
+          foul: matchInfo['matchDetail']!['foul'],
+          card: matchInfo['matchDetail']!['redCards'] + matchInfo['nickname']!['yellowCards'],
+        ));
+
+        if (matchInfo['accessId'] == widget.id) {
+          if (matchInfo['matchDetail']['matchResult'] == "승") {
+            win++;
+            matchResult = 0;
+          } else if (matchInfo['matchDetail']['matchResult'] == "무") {
+            draw++;
+            matchResult = 1;
+          } else {
+            lose++;
+            matchResult = 2;
+          }
+          scoringPoint += matchInfo['shoot']!['goalTotal'] as int;
+        } else {
+          losingPoint += matchInfo['shoot']!['goalTotal'] as int;
+        }
+      }
+
+      cells.add(Match(
+        matchId: details['matchId'],
+        matchDate: details['matchDate'],
+        result: matchResult,
+        players: players,
+        screen: 0,
+      ));
     }
 
     setState(() {
@@ -178,8 +248,8 @@ class _MyChangeState extends State<DetailApp> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Text("Lv." + widget.level.toString(), style: TextStyle(color: Colors.white),),
-                Text(title, style: TextStyle(color: Colors.white),),
+                Text("Lv." + widget.level.toString(), style: const TextStyle(color: Colors.white),),
+                Text(title, style: const TextStyle(color: Colors.white),),
               ],
             ),
           ),
@@ -187,80 +257,83 @@ class _MyChangeState extends State<DetailApp> {
         body: Stack(
           children: [
             loading
-                ? ListView(children: <Widget>[
-              Padding(
-                padding: EdgeInsets.only(top: 16),
-              ),
-              Align(
-                alignment: Alignment.center,
-                child: CircularProgressIndicator(),
-              ),
-              Padding(
-                padding: EdgeInsets.only(top: 16),
-                child: Text(
-                  '잠시만 기다려주세요...',
-                  textAlign: TextAlign.center,
-                ),
-              )
-            ])
-                : RefreshIndicator(
-              child: ListView(
-                children: cells.length > 0
-                    ? <Widget>[
-                  Padding(
-                    padding: EdgeInsets.only(top: 10),
-                  ),
-                  Text(
-                    "최근 ${cells.length}경기 기준",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(top: 10),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: <Widget>[
-                      /// 최근 경기 승, 무, 패 / 최근 경기 득점 / 최근 경기 실점 / 레벨, 시즌 최고 등급
-                    ],
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(top: 10),
-                  ),
-                  ListView.builder(
-                      physics: ScrollPhysics(),
-                      shrinkWrap: true,
-                      padding: EdgeInsets.zero,
-                      itemCount: cells.length + 1,
-                      itemBuilder: (BuildContext _context, int i) {
-                        if (i == cells.length) {
-                          return ListTile(
-                            isThreeLine: true,
-                            subtitle: Text(""),
-                          );
-                        }
-                        return _buildRow(cells[i]);
-                      })
-                ]
-                    : <Widget>[
-                  Padding(
-                    padding: EdgeInsets.only(top: 16),
-                  ),
-                  Icon(
-                    Icons.error_outline,
-                    color: Colors.red,
-                    size: 60,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Text(
-                      'Error: 정보가 없습니다.\n새로고침을 눌러 다시 시도해주세요.',
-                      textAlign: TextAlign.center,
+                ? ListView(children: const <Widget>[
+                    Padding(
+                      padding: EdgeInsets.only(top: 16),
                     ),
-                  )
-                ],
-              ),
+                    Align(
+                      alignment: Alignment.center,
+                      child: CircularProgressIndicator(),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(top: 16),
+                      child: Text(
+                        '잠시만 기다려주세요...',
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  ])
+                : RefreshIndicator(
+                    child: ListView(
+                      children: cells.isNotEmpty
+                          ? <Widget>[
+                            const Padding(
+                              padding: EdgeInsets.only(top: 10),
+                            ),
+                            Text(
+                              "최근 ${cells.length}경기 기준",
+                              textAlign: TextAlign.center,
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.only(top: 10),
+                            ),
+                            barChart(
+                              win, lose,
+                              message: "$win승 $draw무 $lose패",
+                              center: draw,
+                              width: MediaQuery.of(context).size.width * 0.8
+                            ),
+                            barChart(
+                                scoringPoint, losingPoint,
+                                message: "최근 경기 득/실점: $scoringPoint/$losingPoint",
+                                width: MediaQuery.of(context).size.width * 0.8
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.only(top: 10),
+                            ),
+                            ListView.builder(
+                              physics: const ScrollPhysics(),
+                              shrinkWrap: true,
+                              padding: EdgeInsets.zero,
+                              itemCount: cells.length + 1,
+                              itemBuilder: (BuildContext _context, int i) {
+                                if (i == cells.length) {
+                                  return const ListTile(
+                                    isThreeLine: true,
+                                    subtitle: Text(""),
+                                  );
+                                }
+                                return _buildRow(cells[i]);
+                            })
+                          ]
+                          : const <Widget>[
+                        Padding(
+                          padding: EdgeInsets.only(top: 16),
+                        ),
+                        Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                          size: 60,
+                        ),
+                        Padding(
+                          padding: EdgeInsets.only(top: 16),
+                          child: Text(
+                            'Error: 정보가 없습니다.\n새로고침을 눌러 다시 시도해주세요.',
+                            textAlign: TextAlign.center,
+                          ),
+                        )
+                      ],
+                    ),
               onRefresh: update,
             ),
             Container(
@@ -279,68 +352,182 @@ class _MyChangeState extends State<DetailApp> {
         ));
   }
 
-  Widget _buildRow(dynamic cells) {
+  Widget _buildRow(Match cells) {
+    DateTime matchDate = DateFormat('yyyy-MM-dd HH:mm:ss')
+        .parse(cells.matchDate.replaceFirst("T", " "))
+        .add(const Duration(hours: 9)); // 한국 시간 기준
+
+    String scores = "";
+
+    if (cells.players[0].accessId == widget.id) {
+      scores += cells.players[0].accessId + " ";
+      scores += cells.players[0].goal.toString();
+      scores += " : ";
+      scores += cells.players[1].goal.toString();
+      scores += " " + cells.players[1].accessId;
+    } else {
+      scores += cells.players[1].accessId + " ";
+      scores += cells.players[1].goal.toString();
+      scores += " : ";
+      scores += cells.players[0].goal.toString();
+      scores += " " + cells.players[0].accessId;
+    }
+
     return ExpansionTile(
-      /// alert()로 endTime을 알 수 있도록
-      key: PageStorageKey<dynamic>(cells),
-      leading: Container(
+      key: PageStorageKey<Match>(cells),
+      leading: SizedBox(
         width: 65,
         child: Center(
           child: RichText(
               textAlign: TextAlign.center,
               text: TextSpan(
-                  text: now.difference(cells.endTime).inDays != 0
-                      ? "${now.difference(cells.endTime).inDays}일 전"
-                      : (now.difference(cells.endTime).inHours != 0
-                      ? "${now.difference(cells.endTime).inHours}시간 전"
-                      : (now.difference(cells.endTime).inMinutes != 0
-                      ? "${now.difference(cells.endTime).inMinutes}분 전"
-                      : "${now.difference(cells.endTime).inSeconds}초 전")),
+                  text: now.difference(matchDate).inDays != 0
+                      ? "${now.difference(matchDate).inDays}일 전"
+                      : (now.difference(matchDate).inHours != 0
+                      ? "${now.difference(matchDate).inHours}시간 전"
+                      : (now.difference(matchDate).inMinutes != 0
+                      ? "${now.difference(matchDate).inMinutes}분 전"
+                      : "${now.difference(matchDate).inSeconds}초 전")),
                   style: TextStyle(
                       color: MediaQuery.of(context).platformBrightness ==
                           Brightness.dark
                           ? Colors.white
                           : Colors.black),
-                  // recognizer: TapGestureRecognizer()
-                  //   ..onTap = () {
-                  //     /// print(cells.matchId);
-                  //   })),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      alert("상세 시간", cells.matchDate.replaceFirst("T", " "));
+                    },
               ),
           ),
         ),
       ),
-      title: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(cells.trackName),
-          ),
-          Text(
-            cells.matchTime != 0
-                ? "${cells.matchTime ~/ 60000}:${((cells.matchTime ~/ 1000) % 60).toString().padLeft(2, "0")}:${(cells.matchTime % 1000).toString().padLeft(3, "0")}"
-                : "-:--:---",
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ],
+      title: Expanded(
+        child: Text(scores),
       ),
-      trailing: Text(
-        cells.rank > 8 || cells.rank < 1
-            ? "리타/${cells.playerCount}"
-            : "#${cells.rank}/${cells.playerCount}",
+      trailing: Text(cells.result == 0 ? "승" : (cells.result == 1 ? "무" : "패"),
         style: TextStyle(
-            color: cells.rank > 8 || cells.rank < 1 ? Colors.redAccent : Colors.blueAccent),
+            color: cells.result == 0 ? Colors.blueAccent : (cells.result == 1 ? Colors.blueGrey : Colors.redAccent),
+        ),
       ),
       children: <Widget>[
-        Container(), /// 포메이션, 어시스트/슛 (터치 시 화면 바꾸기)
-        Container(
-          margin: EdgeInsets.symmetric(vertical: 5.0),
-          height: 120.0,
-          child: ListView( /// 슈팅, 유효슈팅, 점유율, 패스 성공률, 태클, 코너킥, 파울, 경고
+        RichText(
+          textAlign: TextAlign.right,
+          text: TextSpan(
+            text: "${cells.players[cells.players[0].accessId == widget.id ? 1 : 0].nickname}의 전적 검색하기",
+            style: const TextStyle(color: Colors.blue),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () async {
+                await API.infoFromAccessId(cells.players[cells.players[0].accessId == widget.id ? 1 : 0].accessId).then((get) async {
+                  if (get.name != null) {
+                    for (int i = 0; i < players.length; i++) {
+                      if (players[i][0] == get.accessId) {
+                        players.remove(players[i]);
+                      }
+                    }
+                    players.insert(0, [get.accessId, get.name]);
+                    if (players.length > 10) {
+                      players.removeRange(10, players.length);
+                    }
+                    recent.writeAsStringSync(jsonEncode(players));
+                    Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => DetailApp(
+                              id: get.accessId,
+                              nickname: get.nickname,
+                              level: get.level,
+                              matchtype: widget.matchtype,
+                            )));
+                  }
+                });
+              }
+          ),
+        ),
+        GestureDetector(
+          key: PageStorageKey<Match>(cells),
+          onTap: () { /// 포메이션, 어시스트/슛 (터치 시 화면 바꾸기)
+            setState(() {
+              cells.screen = (cells.screen + 1) % 1;
+            });
+          }, // Image tapped
+          child: Stack(
+            children: [
+              Image.asset(
+                'assets/playground.png',
+                fit: BoxFit.cover, // Fixes border issues
+                width: MediaQuery.of(context).size.width,
+                height: MediaQuery.of(context).size.width / 640 * 406,
+              ),
+              Stack( // cells.players[0]의 정보들
+                children: cells.screen == 0
+                    ? cells.players[0].npcs.map((item) {
+                        return Positioned(
+                          left: MediaQuery.of(context).size.width * (position[item.position]!['x'] as double) - 32,
+                          top: MediaQuery.of(context).size.width / 640 * 406 * (position[item.position]!['y'] as double) - 32 - 8,
+                          child: Column(
+                            children: [
+                              Stack(
+                                children: [
+                                  GestureDetector(
+                                    onTap: () {
+                                      setState(() async {
+                                        await alertNPC(item);
+                                      });
+                                    }, // Image tapped
+                                    child: Image.network(
+                                      'https://fo4.dn.nexoncdn.co.kr/live/externalAssets/common/players/p${item.spId % 1000000}.png',
+                                      fit: BoxFit.cover, // Fixes border issues
+                                      width: 64,
+                                      height: 64,
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 0,
+                                    right: 0,
+                                    child: Text(item.rating.toString()),
+                                  ),
+                                ]
+                              ),
+                              Text(position[item.position]?['desc'] as String),
+                              Text(spid[item.spId]?['name'])
+                            ],
+                          ),
+                        );
+                      }).toList()
+                    : [
+                      CustomPaint(
+                        size: Size(MediaQuery.of(context).size.width, MediaQuery.of(context).size.width / 640 * 406),
+                        painter: MyPainter(shootings: cells.players[0].shootings, width: MediaQuery.of(context).size.width),
+                      ),
+                    ],
+              ),
+              Stack( // cells.players[1]의 정보들
+                children: cells.screen == 0
+                    ? cells.players[0].npcs.map((item) {
+                  return Container();
+                }).toList()
+                    : cells.players[0].shootings.map((item) => Container()).toList(),
+              ),
+            ],
+          ),
+        ),
+        Container( /// 슈팅, 유효슈팅, 점유율, 패스 성공률, 태클, 코너킥, 파울, 경고
+          margin: const EdgeInsets.symmetric(vertical: 5.0),
+          height: 80.0,
+          child: ListView(
               scrollDirection: Axis.horizontal,
               physics: const ScrollPhysics(),
-              key: PageStorageKey<dynamic>(cells),
+              key: PageStorageKey<Match>(cells),
               shrinkWrap: true,
               children: [
-
+                barChart(cells.players[0].shootTotal, cells.players[1].shootTotal, message: "슈팅\n${cells.players[0].shootTotal} : ${cells.players[1].shootTotal}",),
+                barChart(cells.players[0].effectiveShootTotal, cells.players[1].effectiveShootTotal, message: "유효슈팅\n${cells.players[0].effectiveShootTotal} : ${cells.players[1].effectiveShootTotal}",),
+                barChart(cells.players[0].possession, cells.players[1].possession, message: "점유율\n${cells.players[0].possession} : ${cells.players[1].possession}",),
+                barChart(cells.players[0].passSuccessRate, cells.players[1].passSuccessRate, message: "패스 성공률\n${cells.players[0].passSuccessRate} : ${cells.players[1].passSuccessRate}",),
+                barChart(cells.players[0].tackleSuccess, cells.players[1].tackleSuccess, message: "태클\n${cells.players[0].tackleSuccess} : ${cells.players[1].tackleSuccess}",),
+                barChart(cells.players[0].cornerKick, cells.players[1].cornerKick, message: "코너킥\n${cells.players[0].cornerKick} : ${cells.players[1].cornerKick}",),
+                barChart(cells.players[0].foul, cells.players[1].foul, message: "파울\n${cells.players[0].foul} : ${cells.players[1].foul}",),
+                barChart(cells.players[0].card, cells.players[1].card, message: "경고\n${cells.players[0].card} : ${cells.players[1].card}",),
               ],
           ),
         ),
@@ -348,191 +535,88 @@ class _MyChangeState extends State<DetailApp> {
     );
   }
 
-  Widget _buildColumn(dynamic cells) {
-    return InkResponse(
-      enableFeedback: true,
-      child: Container(
-        width: 160.0,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Text(cells.rank > 8 || cells.rank < 1 ? "- " : cells.rank.toString() + " "),
-                cells.win != 0
-                    ? Icon(
-                  Icons.thumb_up,
-                  color: Colors.yellow,
-                  size: 10,
-                )
-                    : Container(),
-                Expanded(
-                  child: Text(
-                    cells.trackName,
-                    style: TextStyle(
-                      color: index > 0 || cells.rank == 1 || cells.rank == 3
-                          ? Colors.white
-                          : Colors.black,
-                      backgroundColor: index > 0
-                          ? (cells.clicked ? Colors.blueAccent : Colors.red)
-                          : (cells.rank == 1
-                          ? Colors.amber[800]
-                          : (cells.rank == 2
-                          ? Colors.grey
-                          : (cells.rank == 3
-                          ? Colors.brown
-                          : Colors.white))),
-                    ),
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-              ],
-            ),
-            Padding(
-              padding: EdgeInsets.only(top: 10),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                File("$dir/out/character/${cells.trackId}.png").existsSync()
-                    ? Image.file(
-                  File("$dir/out/character/${cells.trackId}.png"),
-                  scale: 6,
-                )
-                    : Container(),
-                File("$dir/out/kart/${cells.matchId}.png").existsSync()
-                    ? Image.file(
-                  File("$dir/out/kart/${cells.matchId}.png"),
-                  scale: 7,
-                )
-                    : Container(),
-              ],
-            ),
-            Padding(
-              padding: EdgeInsets.only(top: 10),
-            ),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(cells.matchTime != 0
-                      ? "${cells.matchTime ~/ 60000}:${((cells.matchTime ~/ 1000) % 60).toString().padLeft(2, "0")}:${(cells.matchTime % 1000).toString().padLeft(3, "0")}"
-                      : "-:--:---"),
-                ),
-                cells.playerCount != 6
-                    ? Text(
-                  cells.playerCount == 1
-                      ? "초보"
-                      : (cells.playerCount == 2
-                      ? "루키"
-                      : (cells.playerCount == 3
-                      ? "L3"
-                      : (cells.playerCount == 4
-                      ? "L2"
-                      : (cells.playerCount == 5
-                      ? "L1"
-                      : (" "))))),
-                  style: TextStyle(
-                    color: cells.playerCount == 3
-                        ? Colors.blue
-                        : (cells.playerCount == 4
-                        ? Colors.red
-                        : (cells.playerCount == 5
-                        ? Colors.deepPurple
-                        : Colors.white)),
-                    backgroundColor: cells.playerCount == 3 || cells.playerCount == 4 || cells.playerCount == 5
-                        ? Colors.white
-                        : (cells.playerCount == 1
-                        ? Colors.amber[700]
-                        : (cells.playerCount == 2
-                        ? Colors.green
-                        : null)),
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
-                    : ShaderMask(
-                  shaderCallback: (bounds) => RadialGradient(
-                    colors: <Color>[
-                      Colors.red,
-                      Colors.deepOrange,
-                      Colors.orange,
-                      Colors.amber,
-                      Colors.yellow,
-                      Colors.lime,
-                      Colors.lightGreen,
-                      Colors.green,
-                      Colors.teal,
-                      Colors.cyan,
-                      Colors.lightBlue,
-                      Colors.blue,
-                      Colors.indigo,
-                      Colors.purple,
-                      Colors.deepPurple,
-                      Colors.deepPurple,
-                    ],
-                  ).createShader(
-                    Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-                  ),
-                  child: Text(
-                    "Pro",
-                    style: TextStyle(
-                      // The color must be set to white for this to work
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+  Widget barChart(int left, int right, {String message = "", int center = 0, double width = 100}) { /// TODO: 바 차트 구현, target/total
+    return Column(
+      children: [
+        Text(
+          message,
+          textAlign: TextAlign.center,
         ),
-      ),
-      onTap: () async {
-        if (cells.accountNo != widget.id) {
-          await API.infoFromAccessId(cells.accountNo).then((get) async {
-            if (get.name != null) {
-              for (int i = 0; i < players.length; i++) {
-                if (players[i][0] == get.accessId) {
-                  players.remove(players[i]);
-                }
-              }
-              players.insert(0, [get.accessId, get.name]);
-              if (players.length > 10) {
-                players.removeRange(10, players.length);
-              }
-              recent.writeAsStringSync(jsonEncode(players));
-              Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => DetailApp(
-                        id: get.accessId,
-                        nickname: get.nickname,
-                        level: get.level,
-                        matchtype: widget.matchtype,
-                      )));
-            }
-          });
-        }
-      },
-      onLongPress: () async {
-        await alert(cells);
-      },
+        SizedBox(
+          width: width,
+          height: width / 100,
+          child: Row(
+            children: [
+              Expanded(
+                flex: left,
+                child: Container(
+                  color: Colors.blueAccent,
+                ),
+              ),
+              Expanded(
+                flex: center,
+                child: Container(
+                  color: Colors.purpleAccent,
+                ),
+              ),
+              Expanded(
+                flex: right,
+                child: Container(
+                  color: Colors.redAccent,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  Future<void> alert(dynamic message) async { // 선수 세부정보 표시
+  Future<void> alertNPC(NPC npc) async { /// TODO: 선수 세부정보 표시
     return showDialog<void>(
       context: context,
       barrierDismissible: false, // user must tap button!
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text(message.trackName),
-          content: Text("라이센스: "),
+          title: Text(spid[npc.spId]['name']),
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.9,
+            height: MediaQuery.of(context).size.height * 0.8,
+            child: Center(
+              child: Expanded(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+
+                  ],
+                ),
+              ),
+            ),
+          ),
           actions: <Widget>[
             TextButton(
-              child: Text('닫기'),
+              child: const Text('닫기'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> alert(String title, String content) async { // 날짜 세부정보 등 표시
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(content),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('닫기'),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -544,6 +628,83 @@ class _MyChangeState extends State<DetailApp> {
   }
 }
 
+class MyPainter extends CustomPainter { //         <-- CustomPainter class
+  MyPainter({required this.shootings, required this.width})
+      : super();
+
+  final List<Shoot> shootings;
+  final double width;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    var linePaint = Paint()
+      ..color = Colors.black
+      ..strokeWidth = 1;
+
+    var assist = Paint()
+      ..color = Colors.greenAccent
+      ..strokeCap = StrokeCap.round //rounded points
+      ..strokeWidth = 10;
+
+    var ontarget = Paint()
+      ..color = Colors.orange
+      ..strokeCap = StrokeCap.round //rounded points
+      ..strokeWidth = 10;
+
+    var offtarget = Paint()
+      ..color = Colors.red
+      ..strokeCap = StrokeCap.round //rounded points
+      ..strokeWidth = 10;
+
+    var goal = Paint()
+      ..color = Colors.yellow
+      ..strokeCap = StrokeCap.round //rounded points
+      ..strokeWidth = 10;
+
+    //list of points
+    List<List<Offset>> lines = [];
+    List<Offset> assistPoints = [];
+    List<Offset> ontargetPoints = [];
+    List<Offset> offtargetPoints = [];
+    List<Offset> goalPoints = [];
+
+    for (Shoot shooting in shootings) {
+      if (shooting.assist) {
+        assistPoints.add(Offset(shooting.assistX * width, shooting.assistY * width / 640 * 406));
+        List<Offset> assistGoal = [];
+        assistGoal.add(Offset(shooting.assistX * width, shooting.assistY * width / 640 * 406));
+        assistGoal.add(Offset(shooting.x * width, shooting.y * width / 640 * 406));
+      }
+
+      switch (shooting.result) {
+        case 1:
+          ontargetPoints.add(Offset(shooting.x * width, shooting.y * width / 640 * 406));
+          break;
+        case 3:
+          goalPoints.add(Offset(shooting.x * width, shooting.y * width / 640 * 406));
+          break;
+        default:
+          offtargetPoints.add(Offset(shooting.x * width, shooting.y * width / 640 * 406));
+          break;
+      }
+    }
+
+    //draw points on canvas
+    canvas.drawPoints(PointMode.points, assistPoints, assist);
+    canvas.drawPoints(PointMode.points, ontargetPoints, ontarget);
+    canvas.drawPoints(PointMode.points, offtargetPoints, offtarget);
+    canvas.drawPoints(PointMode.points, goalPoints, goal);
+
+    for (List<Offset> line in lines) {
+      canvas.drawLine(line.first, line.last, linePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter old) {
+    return false;
+  }
+}
 const position = {
   0: {'x': 1/8, 'y': 0.5, 'desc': "GK"},
   1: {'x': 3/16, 'y': 0.5, 'desc': "SW"},
