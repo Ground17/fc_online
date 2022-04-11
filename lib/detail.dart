@@ -34,6 +34,8 @@ class _MyChangeState extends State<DetailApp> {
   late List<dynamic> spposition;
   late List<dynamic> division;
 
+  String title = ""; // 최종 등급
+
   DateTime now = DateTime.now();
 
   DateTime endDate = DateTime.now();
@@ -82,33 +84,55 @@ class _MyChangeState extends State<DetailApp> {
     setState(() {
       loading = true;
       cells.clear();
+      title = "";
       win = 0;
-      int draw = 0;
-      int lose = 0;
+      draw = 0;
+      lose = 0;
     });
 
-    // cells.add(Cells(
-    //   clicked: false,
-    //   matchId: shortcut[i]["matchId"],
-    //   trackId: shortcut[i]["trackId"],
-    //   trackName: trackName,
-    //   startTime: DateFormat('yyyy-MM-dd HH:mm:ss')
-    //       .parse(shortcut[i]["startTime"].toString().replaceFirst("T", " "))
-    //       .add(Duration(hours: 9)),
-    //   endTime: DateFormat('yyyy-MM-dd HH:mm:ss')
-    //       .parse(shortcut[i]["endTime"].toString().replaceFirst("T", " "))
-    //       .add(Duration(hours: 9)),
-    //   matchTime: shortcut[i]["player"]["matchTime"] != ""
-    //       ? int.parse(shortcut[i]["player"]["matchTime"])
-    //       : 0,
-    //   playerCount: shortcut[i]["playerCount"],
-    //   rank: shortcut[i]["player"]["matchRank"] != "" && shortcut[i]["player"]["matchRank"] != "0"
-    //       ? int.parse(shortcut[i]["player"]["matchRank"])
-    //       : 99,
-    // ));
-    // if (shortcut[i]["player"]["matchWin"] != "0") {
-    //   win++;
-    // }
+    List<MaxDivision> maxdivisions = await API.maxdivision(widget.id);
+    for (final maxdivision in maxdivisions) {
+      if (maxdivision.matchType == widget.matchtype) {
+        for (final div in division) {
+          if (maxdivision.division == div["divisionId"]) {
+            setState(() {
+              title = div["divisionName"];
+            });
+            break;
+          }
+        }
+        break;
+      }
+    }
+
+    List<String> matchIds = await API.matchIds(widget.id, matchtype: widget.matchtype);
+
+    for (final matchId in matchIds) {
+      var shortcut = await API.match(matchId);
+
+      // cells.add(Cells(
+      //   clicked: false,
+      //   matchId: shortcut[i]["matchId"],
+      //   trackId: shortcut[i]["trackId"],
+      //   trackName: trackName,
+      //   startTime: DateFormat('yyyy-MM-dd HH:mm:ss')
+      //       .parse(shortcut[i]["startTime"].toString().replaceFirst("T", " "))
+      //       .add(Duration(hours: 9)),
+      //   endTime: DateFormat('yyyy-MM-dd HH:mm:ss')
+      //       .parse(shortcut[i]["endTime"].toString().replaceFirst("T", " "))
+      //       .add(Duration(hours: 9)),
+      //   matchTime: shortcut[i]["player"]["matchTime"] != ""
+      //       ? int.parse(shortcut[i]["player"]["matchTime"])
+      //       : 0,
+      //   playerCount: shortcut[i]["playerCount"],
+      //   rank: shortcut[i]["player"]["matchRank"] != "" && shortcut[i]["player"]["matchRank"] != "0"
+      //       ? int.parse(shortcut[i]["player"]["matchRank"])
+      //       : 99,
+      // ));
+      // if (shortcut[i]["player"]["matchWin"] != "0") {
+      //   win++;
+      // }
+    }
 
     setState(() {
       now = DateTime.now();
@@ -155,6 +179,7 @@ class _MyChangeState extends State<DetailApp> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 Text("Lv." + widget.level.toString(), style: TextStyle(color: Colors.white),),
+                Text(title, style: TextStyle(color: Colors.white),),
               ],
             ),
           ),
@@ -241,7 +266,7 @@ class _MyChangeState extends State<DetailApp> {
             Container(
               alignment: Alignment.bottomCenter,
               child: Container(
-                decoration: new BoxDecoration(
+                decoration: BoxDecoration(
                   color: Theme.of(context).backgroundColor,
                 ),
                 alignment: Alignment.center,
@@ -518,3 +543,56 @@ class _MyChangeState extends State<DetailApp> {
     );
   }
 }
+
+const position = {
+  0: {'x': 1/8, 'y': 0.5, 'desc': "GK"},
+  1: {'x': 3/16, 'y': 0.5, 'desc': "SW"},
+  2: {'x': 3/8, 'y': 0.5 + 2/6, 'desc': "RWB"},
+  3: {'x': 2/8, 'y': 0.5 + 2/6, 'desc': "RB"},
+  4: {'x': 2/8, 'y': 0.5 + 1/6, 'desc': "RCB"},
+  5: {'x': 2/8, 'y': 0.5, 'desc': "CB"},
+  6: {'x': 2/8, 'y': 0.5 - 1/6, 'desc': "LCB"},
+  7: {'x': 2/8, 'y': 0.5 - 2/6, 'desc': "LB"},
+  8: {'x': 3/8, 'y': 0.5 - 2/6, 'desc': "LWB"},
+  9: {'x': 3/8, 'y': 0.5 + 1/6, 'desc': "RDM"},
+  10: {'x': 3/8, 'y': 0.5, 'desc': "CDM"},
+  11: {'x': 3/8, 'y': 0.5 - 1/6, 'desc': "LDM"},
+  12: {'x': 4/8, 'y': 0.5 + 2/6, 'desc': "RM"},
+  13: {'x': 4/8, 'y': 0.5 + 1/6, 'desc': "RCM"},
+  14: {'x': 4/8, 'y': 0.5, 'desc': "CM"},
+  15: {'x': 4/8, 'y': 0.5 - 1/6, 'desc': "LCM"},
+  16: {'x': 4/8, 'y': 0.5 - 2/6, 'desc': "LM"},
+  17: {'x': 5/8, 'y': 0.5 + 1/6, 'desc': "RAM"},
+  18: {'x': 5/8, 'y': 0.5, 'desc': "CAM"},
+  19: {'x': 5/8, 'y': 0.5 - 1/6, 'desc': "LAM"},
+  20: {'x': 6/8, 'y': 0.5 + 1/6, 'desc': "RF"},
+  21: {'x': 6/8, 'y': 0.5, 'desc': "CF"},
+  22: {'x': 6/8, 'y': 0.5 - 1/6, 'desc': "LF"},
+  23: {'x': 13/16, 'y': 0.5 + 2/6, 'desc': "RW"},
+  24: {'x': 7/8, 'y': 0.5 + 1/6, 'desc': "RS"},
+  25: {'x': 7/8, 'y': 0.5, 'desc': "ST"},
+  26: {'x': 7/8, 'y': 0.5 - 1/6, 'desc': "LS"},
+  27: {'x': 13/16, 'y': 0.5 - 2/6, 'desc': "LW"},
+  28: {'x': 0, 'y': 0, 'desc': "SUB"},
+};
+
+const division = {
+  800: {'divisionName': "슈퍼챔피언스"},
+  900: {'divisionName': "챔피언스"},
+  1000: {'divisionName': "슈퍼챌린지"},
+  1100: {'divisionName': "챌린지1"},
+  1200: {'divisionName': "챌린지2"},
+  1300: {'divisionName': "챌린지3"},
+  2000: {'divisionName': "월드클래스1"},
+  2100: {'divisionName': "월드클래스2"},
+  2200: {'divisionName': "월드클래스3"},
+  2300: {'divisionName': "프로1"},
+  2400: {'divisionName': "프로2"},
+  2500: {'divisionName': "프로3"},
+  2600: {'divisionName': "세미프로1"},
+  2700: {'divisionName': "세미프로2"},
+  2800: {'divisionName': "세미프로3"},
+  2900: {'divisionName': "유망주1"},
+  3000: {'divisionName': "유망주2"},
+  3100: {'divisionName': "유망주3"},
+};

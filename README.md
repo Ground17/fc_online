@@ -19,4 +19,3 @@ Flutter application 입니다.
 
 - Response Headers에서 이 서비스에 사용하는 데이터
     - Content-Length: 112721304 -> 메타데이터 다운로드 받을 때 전체 크기 추정
-    - Last-Modified: Wed, 23 Feb 2022 09:21:50 GMT -> 메타데이터가 최근 다운받은 버전으로부터 변경되었는지 확인하여 변경될 때만 다운로드

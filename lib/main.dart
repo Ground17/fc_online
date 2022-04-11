@@ -9,7 +9,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:fifaonline/classes.dart';
+import 'classes.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
@@ -17,8 +17,8 @@ import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'detail.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   Ads.initialize();
-  AppTrackingTransparency.requestTrackingAuthorization();
   runApp(const MyApp());
 }
 
@@ -62,18 +62,36 @@ class _MyHomePageState extends State<MyHomePage> {
   String dir = "";
 
   late File recent;
-  late File revised; // revised.txt
   late http.Response r;
-  late int total;
-  late int current;
+  late int total = 0;
+  late int current = 0;
   late List<dynamic> players;
 
-  late File matchtype;
+  late File spid;
 
-  List<dynamic> dropdownValues = [{
-    "matchtype": 50,
-    "desc": "공식경기"
-  }];
+  List<dynamic> dropdownValues = [
+    {
+      "matchtype": 30,
+      "desc": "리그 친선"
+    },
+    {
+      "matchtype": 40,
+      "desc": "클래식 1on1"
+    },
+    {
+      "matchtype": 50,
+      "desc": "공식경기"
+    },
+    {
+      "matchtype": 52,
+      "desc": "감독모드"
+    },
+    {
+      "matchtype": 60,
+      "desc": "공식 친선"
+    }
+  ];
+
   String dropdownValue = "공식경기";
 
   BannerAd bannerAd = Ads.createBannerAd();
@@ -81,6 +99,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    AppTrackingTransparency.requestTrackingAuthorization();
     _initFile();
     Ads.showBannerAd(bannerAd);
   }
@@ -93,19 +112,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<int> getTotal() async {
     r = await http
-        .head("https://static.api.nexon.co.kr/fifaonline4/latest/matchtype.json");
+        .head(Uri.parse("https://static.api.nexon.co.kr/fifaonline4/latest/spid.json"));
     int t = int.parse(r.headers['content-length']!);
     r = await http
-        .head("https://static.api.nexon.co.kr/fifaonline4/latest/spid.json");
-    t += int.parse(r.headers['content-length']!);
-    r = await http
-        .head("https://static.api.nexon.co.kr/fifaonline4/latest/seasonid.json");
-    t += int.parse(r.headers['content-length']!);
-    r = await http
-        .head("https://static.api.nexon.co.kr/fifaonline4/latest/spposition.json");
-    t += int.parse(r.headers['content-length']!);
-    r = await http
-        .head("https://static.api.nexon.co.kr/fifaonline4/latest/division.json");
+        .head(Uri.parse("https://static.api.nexon.co.kr/fifaonline4/latest/seasonid.json"));
     t += int.parse(r.headers['content-length']!);
 
     return t;
@@ -113,11 +123,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _initFile() async {
     dir = (await getApplicationDocumentsDirectory()).path;
-    revised = File('$dir/revised.txt');
+
 
     recent = File('$dir/recent.txt');
 
-    matchtype = File('$dir/matchtype.json');
+    spid = File('$dir/spid.json');
 
     if (!await recent.exists()) {
       players = [];
@@ -126,18 +136,12 @@ class _MyHomePageState extends State<MyHomePage> {
 
     players = jsonDecode(recent.readAsStringSync());
 
-    if (!await revised.exists()) {
+    if (!await spid.exists()) {
       total = await getTotal();
       setState(() {
         _isLoading = true;
       });
       await checkMetaInit();
-    }
-
-    if (await matchtype.exists()) {
-      setState(() {
-        dropdownValues = jsonDecode(matchtype.readAsStringSync());
-      });
     }
   }
 
@@ -265,9 +269,7 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             Padding(
               padding: EdgeInsets.all(16.0),
-              child: Text(current / total > 0.99
-                  ? "압축 해제 중..."
-                  : "${(current / 1048576).toStringAsFixed(2)}MB / ${(total / 1048576).toStringAsFixed(2)}MB (${current * 100 ~/ total}%)"),
+              child: Text("${(current / 1048576).toStringAsFixed(2)}MB / ${(total / 1048576).toStringAsFixed(2)}MB (${current * 100 ~/ total}%)"),
             ),
             Divider(),
             mailDeveloper(),
@@ -303,24 +305,9 @@ class _MyHomePageState extends State<MyHomePage> {
         child: ListView(
           shrinkWrap: true,
           children: <Widget>[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                const Text("메타데이터 업데이트"),
-                IconButton(
-                  onPressed: () async {
-                    total = await getTotal();
-                    checkMetaInit(option: true);
-                  },
-                  icon: Icon(
-                    Icons.download,
-                    color: Colors.teal[800],
-                  ),
-                )
-              ]
+            Center(
+              child: _showDropDown(),
             ),
-            _showDropDown(),
             _showEmailInput(),
             _submit(),
             Row(
@@ -336,6 +323,22 @@ class _MyHomePageState extends State<MyHomePage> {
                           ..onTap = () async {
                             const url =
                                 'https://ground171717.blogspot.com/2021/10/privacy.html';
+                            if (await canLaunch(url)) {
+                              await launch(url);
+                            }
+                          }),
+                  ),
+                ),
+                Expanded(
+                  child: RichText(
+                    textAlign: TextAlign.center,
+                    text: TextSpan(
+                        text: "축구장 사진 출처",
+                        style: const TextStyle(color: Colors.blue),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () async {
+                            const url =
+                                'https://blog.stockclub.kr/entry/%EC%B6%95%EA%B5%AC%EC%9E%A5%EC%9D%98-%ED%81%AC%EA%B8%B0%EB%8A%94-%EB%AA%A8%EB%91%90-%EB%8B%A4%EB%A5%B4%EB%8B%A4-EPL-%EB%B9%856%EB%A1%9C-%EC%95%8C%EC%95%84%EB%B3%B8-%EC%B6%95%EA%B5%AC-%EA%B2%BD%EA%B8%B0%EC%9E%A5';
                             if (await canLaunch(url)) {
                               await launch(url);
                             }
@@ -372,6 +375,20 @@ class _MyHomePageState extends State<MyHomePage> {
           backgroundColor: Theme.of(context).primaryColor,
           title: Text(widget.title),
           actions: <Widget>[
+            !_isLoading
+                ? IconButton(
+              icon: const Icon(
+                Icons.download,
+                color: Colors.white,
+              ),
+              tooltip: "메타데이터 업데이트",
+              onPressed: () async {
+
+                total = await getTotal();
+                checkMetaInit(option: true);
+              },
+            )
+                : Container(),
             !_isLoading
                 ? IconButton(
               icon: const Icon(
@@ -512,7 +529,7 @@ class _MyHomePageState extends State<MyHomePage> {
       barrierDismissible: option, // user must tap button!
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text(option ? "메타데이터 업데이트가 있습니다. 크기는 약 ${(total / 1048576).toStringAsFixed(2)}MB입니다." :
+          title: Text(option ? "메타데이터를 업데이트하시겠습니까? 크기는 약 ${(total / 1048576).toStringAsFixed(2)}MB입니다." :
           "더 나은 어플리케이션 사용을 위해 메타데이터를 다운로드하겠습니다. 크기는 약 ${(total / 1048576).toStringAsFixed(2)}MB이며, "
               "다운로드하지 않을 시 어플을 이용할 수 없습니다."),
           actions: <Widget>[
@@ -543,35 +560,6 @@ class _MyHomePageState extends State<MyHomePage> {
       _isLoading = true;
     });
 
-    final file = File('$dir/matchtype.json');
-
-    try {
-      await file.delete();
-    } catch (e) {
-      print(e);
-    } finally {
-      HttpClient _client = HttpClient();
-      final response = await _client
-          .getUrl(Uri.parse(
-          "https://static.api.nexon.co.kr/fifaonline4/latest/matchtype.json"))
-          .then((HttpClientRequest request) {
-        return request.close();
-      });
-
-      response.listen((d) {
-        file.writeAsBytesSync(d, mode: FileMode.append);
-        setState(() {
-          current += d.length;
-        });
-      }, onDone: () async {
-        download2();
-      }, onError: (e) async {
-        print(e);
-        alert("다운로드 중 오류가 발생했습니다. 네트워크, 저장공간 등을 확인해주세요.");
-      });
-    }
-  }
-  download2() async {
     final file = File('$dir/spid.json');
 
     try {
@@ -593,14 +581,14 @@ class _MyHomePageState extends State<MyHomePage> {
           current += d.length;
         });
       }, onDone: () async {
-        download3();
+        download2();
       }, onError: (e) async {
         print(e);
         alert("다운로드 중 오류가 발생했습니다. 네트워크, 저장공간 등을 확인해주세요.");
       });
     }
   }
-  download3() async {
+  download2() async {
     final file = File('$dir/seasonid.json');
 
     try {
@@ -622,73 +610,11 @@ class _MyHomePageState extends State<MyHomePage> {
           current += d.length;
         });
       }, onDone: () async {
-        download4();
+        _isLoading = false;
       }, onError: (e) async {
         print(e);
         alert("다운로드 중 오류가 발생했습니다. 네트워크, 저장공간 등을 확인해주세요.");
       });
     }
   }
-  download4() async {
-    final file = File('$dir/spposition.json');
-
-    try {
-      await file.delete();
-    } catch (e) {
-      print(e);
-    } finally {
-      HttpClient _client = HttpClient();
-      final response = await _client
-          .getUrl(Uri.parse(
-          "https://static.api.nexon.co.kr/fifaonline4/latest/spposition.json"))
-          .then((HttpClientRequest request) {
-        return request.close();
-      });
-
-      response.listen((d) {
-        file.writeAsBytesSync(d, mode: FileMode.append);
-        setState(() {
-          current += d.length;
-        });
-      }, onDone: () async {
-        download5();
-      }, onError: (e) async {
-        print(e);
-        alert("다운로드 중 오류가 발생했습니다. 네트워크, 저장공간 등을 확인해주세요.");
-      });
-    }
-  }
-  download5() async {
-    final file = File('$dir/division.json');
-
-    try {
-      await file.delete();
-    } catch (e) {
-      print(e);
-    } finally {
-      HttpClient _client = HttpClient();
-      final response = await _client
-          .getUrl(Uri.parse(
-          "https://static.api.nexon.co.kr/fifaonline4/latest/division.json"))
-          .then((HttpClientRequest request) {
-        return request.close();
-      });
-
-      response.listen((d) {
-        file.writeAsBytesSync(d, mode: FileMode.append);
-        setState(() {
-          current += d.length;
-        });
-      }, onDone: () async {
-        setState(() {
-          _isLoading = false;
-          revised.writeAsStringSync(r.headers['last-modified']!);
-        });
-      }, onError: (e) async {
-        print(e);
-        alert("다운로드 중 오류가 발생했습니다. 네트워크, 저장공간 등을 확인해주세요.");
-      });
-    }
-  }
-
 }
