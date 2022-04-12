@@ -50,19 +50,28 @@ class _MyChangeState extends State<DetailApp> {
   late File recent;
   late List<dynamic> players;
 
+  late Widget playground = Image.asset(
+    'assets/playground.png',
+    fit: BoxFit.cover, // Fixes border issues
+    width: MediaQuery.of(context).size.width,
+    height: MediaQuery.of(context).size.width / 640 * 406,
+  );
   BannerAd bannerAd = Ads.createBannerAd();
 
-  void _init() async { /// TODO: 등급도 추가하기
+  void _init() async {
     dir = (await getApplicationDocumentsDirectory()).path;
     final spid_json = jsonDecode(File('$dir/spid.json').readAsStringSync());
     final seasonid_json = jsonDecode(File('$dir/seasonid.json').readAsStringSync());
+
+    spid = <int, dynamic>{};
+    seasonid = <int, dynamic>{};
 
     for (int i = 0; i < spid_json.length; i++) {
       spid[spid_json[i]['id']] = {'name': spid_json[i]['name']};
     }
 
     for (int i = 0; i < seasonid_json.length; i++) {
-      seasonid[spid_json[i]['seasonId']] = {'className': spid_json[i]['className'], 'seasonImg': spid_json[i]['seasonImg']};
+      seasonid[seasonid_json[i]['seasonId']] = {'className': seasonid_json[i]['className'], 'seasonImg': seasonid_json[i]['seasonImg']};
     }
 
     recent = File('$dir/recent.txt');
@@ -109,7 +118,7 @@ class _MyChangeState extends State<DetailApp> {
       }
     }
 
-    List<String> matchIds = await API.matchIds(widget.id, matchtype: widget.matchtype);
+    List<dynamic> matchIds = await API.matchIds(widget.id, matchtype: widget.matchtype, limit: 10);
 
     for (final matchId in matchIds) {
       final details = await API.match(matchId);
@@ -155,10 +164,10 @@ class _MyChangeState extends State<DetailApp> {
           shootings.add(Shoot(
             assist: matchInfo['shootDetail'][j]['assist'],
             result: matchInfo['shootDetail'][j]['result'],
-            assistX: matchInfo['shootDetail'][j]['assistX'],
-            assistY: matchInfo['shootDetail'][j]['assistY'],
-            x: matchInfo['shootDetail'][j]['x'],
-            y: matchInfo['shootDetail'][j]['y'],
+            assistX: i == 0 ? matchInfo['shootDetail'][j]['assistX'] : 1 - matchInfo['shootDetail'][j]['assistX'],
+            assistY: i == 0 ? matchInfo['shootDetail'][j]['assistY'] : 1 - matchInfo['shootDetail'][j]['assistY'],
+            x: i == 0 ? matchInfo['shootDetail'][j]['x'] : 1 - matchInfo['shootDetail'][j]['x'],
+            y: i == 0 ? matchInfo['shootDetail'][j]['y'] : 1 - matchInfo['shootDetail'][j]['y'],
           ));
         }
 
@@ -171,11 +180,11 @@ class _MyChangeState extends State<DetailApp> {
           shootTotal: matchInfo['shoot']!['shootTotal'],
           effectiveShootTotal: matchInfo['shoot']!['effectiveShootTotal'],
           possession: matchInfo['matchDetail']!['possession'],
-          passSuccessRate: matchInfo['pass']!['passSuccess'] / matchInfo['pass']!['passTry'],
+          passSuccessRate: matchInfo['pass']!['passTry'] == 0 ? 0 : (matchInfo['pass']!['passSuccess'] / matchInfo['pass']!['passTry']).round(),
           tackleSuccess: matchInfo['defence']!['tackleSuccess'],
           cornerKick: matchInfo['matchDetail']!['cornerKick'],
           foul: matchInfo['matchDetail']!['foul'],
-          card: matchInfo['matchDetail']!['redCards'] + matchInfo['nickname']!['yellowCards'],
+          card: matchInfo['matchDetail']!['redCards'] + matchInfo['matchDetail']!['yellowCards'],
         ));
 
         if (matchInfo['accessId'] == widget.id) {
@@ -244,12 +253,20 @@ class _MyChangeState extends State<DetailApp> {
             ),
           ],
           bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(50.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+            preferredSize: const Size.fromHeight(20.0),
+            child: Column(
               children: [
-                Text("Lv." + widget.level.toString(), style: const TextStyle(color: Colors.white),),
-                Text(title, style: const TextStyle(color: Colors.white),),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text("Lv." + widget.level.toString(), style: const TextStyle(color: Colors.white),),
+                    Text(title, style: const TextStyle(color: Colors.white),),
+                  ],
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 5),
+                ),
               ],
             ),
           ),
@@ -293,9 +310,12 @@ class _MyChangeState extends State<DetailApp> {
                               center: draw,
                               width: MediaQuery.of(context).size.width * 0.8
                             ),
+                            const Padding(
+                              padding: EdgeInsets.only(top: 16),
+                            ),
                             barChart(
                                 scoringPoint, losingPoint,
-                                message: "최근 경기 득/실점: $scoringPoint/$losingPoint",
+                                message: "최근 경기 득/실점 - $scoringPoint/$losingPoint",
                                 width: MediaQuery.of(context).size.width * 0.8
                             ),
                             const Padding(
@@ -360,18 +380,68 @@ class _MyChangeState extends State<DetailApp> {
     String scores = "";
 
     if (cells.players[0].accessId == widget.id) {
-      scores += cells.players[0].accessId + " ";
+      scores += cells.players[0].nickname + " ";
       scores += cells.players[0].goal.toString();
       scores += " : ";
       scores += cells.players[1].goal.toString();
-      scores += " " + cells.players[1].accessId;
+      scores += " " + cells.players[1].nickname;
     } else {
-      scores += cells.players[1].accessId + " ";
+      scores += cells.players[1].nickname + " ";
       scores += cells.players[1].goal.toString();
       scores += " : ";
       scores += cells.players[0].goal.toString();
-      scores += " " + cells.players[0].accessId;
+      scores += " " + cells.players[0].nickname;
     }
+
+    final List<Widget> formations = [
+      playground
+    ];
+    for (int k = 0; k < cells.players.length; k++) {
+      for (int i = 0; i < cells.players[k].npcs.length; i++) {
+        final item = cells.players[k].npcs[i];
+
+        if (position.containsKey(item.position)) {
+          final x = position[item.position]!['x'] as num;
+          final y = position[item.position]!['y'] as num;
+          formations.add(
+              Positioned(
+                left: MediaQuery.of(context).size.width * (k == 0 ? x : (2 - x)) * 0.5 - 16,
+                top: MediaQuery.of(context).size.width / 640 * 406 * (k == 0 ? y : (1 - y)) - 16 - 5,
+                child: Column(
+                  children: [
+                    GestureDetector(
+                      onTap: () async {
+                        await alertNPC(item);
+                      }, // Image tapped
+                      child: Image.network(
+                        'https://fo4.dn.nexoncdn.co.kr/live/externalAssets/common/players/p${item.spId % 1000000}.png',
+                        fit: BoxFit.cover, // Fixes border issues
+                        width: 32,
+                        height: 32,
+                      ),
+                    ),
+                    Text("${position[item.position]?['desc'] as String} (${item.rating})",
+                      style: const TextStyle(fontSize: 10),),
+                  ],
+                ),
+              )
+          );
+        }
+      }
+    }
+
+
+    final List<Widget> shootlines = [
+      playground,
+      CustomPaint(
+        size: Size(MediaQuery.of(context).size.width, MediaQuery.of(context).size.width / 640 * 406),
+        painter: MyPainter(
+          shootingsMe: cells.players[0].shootings,
+          shootingsOther: cells.players[1].shootings,
+          width: MediaQuery.of(context).size.width
+        ),
+      ),
+    ];
 
     return ExpansionTile(
       key: PageStorageKey<Match>(cells),
@@ -401,150 +471,117 @@ class _MyChangeState extends State<DetailApp> {
           ),
         ),
       ),
-      title: Expanded(
-        child: Text(scores),
-      ),
+      title: Text(scores),
       trailing: Text(cells.result == 0 ? "승" : (cells.result == 1 ? "무" : "패"),
         style: TextStyle(
             color: cells.result == 0 ? Colors.blueAccent : (cells.result == 1 ? Colors.blueGrey : Colors.redAccent),
+            fontWeight: FontWeight.bold,
         ),
       ),
       children: <Widget>[
-        RichText(
-          textAlign: TextAlign.right,
-          text: TextSpan(
-            text: "${cells.players[cells.players[0].accessId == widget.id ? 1 : 0].nickname}의 전적 검색하기",
-            style: const TextStyle(color: Colors.blue),
-            recognizer: TapGestureRecognizer()
-              ..onTap = () async {
-                await API.infoFromAccessId(cells.players[cells.players[0].accessId == widget.id ? 1 : 0].accessId).then((get) async {
-                  if (get.name != null) {
-                    for (int i = 0; i < players.length; i++) {
-                      if (players[i][0] == get.accessId) {
-                        players.remove(players[i]);
-                      }
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            RichText(
+              textAlign: TextAlign.right,
+              text: TextSpan(
+                  text: "${cells.players[cells.players[0].accessId == widget.id ? 1 : 0].nickname}의 전적 검색하기",
+                  style: const TextStyle(color: Colors.blue),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      launchOther(cells.players[cells.players[0].accessId == widget.id ? 1 : 0]);
                     }
-                    players.insert(0, [get.accessId, get.name]);
-                    if (players.length > 10) {
-                      players.removeRange(10, players.length);
-                    }
-                    recent.writeAsStringSync(jsonEncode(players));
-                    Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => DetailApp(
-                              id: get.accessId,
-                              nickname: get.nickname,
-                              level: get.level,
-                              matchtype: widget.matchtype,
-                            )));
-                  }
-                });
-              }
-          ),
+              ),
+            ),
+            IconButton(
+              onPressed: () {
+                launchOther(cells.players[cells.players[0].accessId == widget.id ? 1 : 0]);
+              },
+              icon: const Icon(Icons.launch, color: Colors.blue,),
+            ),
+          ],
         ),
         GestureDetector(
           key: PageStorageKey<Match>(cells),
           onTap: () { /// 포메이션, 어시스트/슛 (터치 시 화면 바꾸기)
             setState(() {
-              cells.screen = (cells.screen + 1) % 1;
+              cells.screen = (cells.screen + 1) % 2;
             });
-          }, // Image tapped
+          },
           child: Stack(
-            children: [
-              Image.asset(
-                'assets/playground.png',
-                fit: BoxFit.cover, // Fixes border issues
-                width: MediaQuery.of(context).size.width,
-                height: MediaQuery.of(context).size.width / 640 * 406,
-              ),
-              Stack( // cells.players[0]의 정보들
-                children: cells.screen == 0
-                    ? cells.players[0].npcs.map((item) {
-                        return Positioned(
-                          left: MediaQuery.of(context).size.width * (position[item.position]!['x'] as double) - 32,
-                          top: MediaQuery.of(context).size.width / 640 * 406 * (position[item.position]!['y'] as double) - 32 - 8,
-                          child: Column(
-                            children: [
-                              Stack(
-                                children: [
-                                  GestureDetector(
-                                    onTap: () {
-                                      setState(() async {
-                                        await alertNPC(item);
-                                      });
-                                    }, // Image tapped
-                                    child: Image.network(
-                                      'https://fo4.dn.nexoncdn.co.kr/live/externalAssets/common/players/p${item.spId % 1000000}.png',
-                                      fit: BoxFit.cover, // Fixes border issues
-                                      width: 64,
-                                      height: 64,
-                                    ),
-                                  ),
-                                  Positioned(
-                                    top: 0,
-                                    right: 0,
-                                    child: Text(item.rating.toString()),
-                                  ),
-                                ]
-                              ),
-                              Text(position[item.position]?['desc'] as String),
-                              Text(spid[item.spId]?['name'])
-                            ],
-                          ),
-                        );
-                      }).toList()
-                    : [
-                      CustomPaint(
-                        size: Size(MediaQuery.of(context).size.width, MediaQuery.of(context).size.width / 640 * 406),
-                        painter: MyPainter(shootings: cells.players[0].shootings, width: MediaQuery.of(context).size.width),
-                      ),
-                    ],
-              ),
-              Stack( // cells.players[1]의 정보들
-                children: cells.screen == 0
-                    ? cells.players[0].npcs.map((item) {
-                  return Container();
-                }).toList()
-                    : cells.players[0].shootings.map((item) => Container()).toList(),
-              ),
-            ],
+            children: cells.screen == 0 ? formations : shootlines,
           ),
         ),
         Container( /// 슈팅, 유효슈팅, 점유율, 패스 성공률, 태클, 코너킥, 파울, 경고
-          margin: const EdgeInsets.symmetric(vertical: 5.0),
-          height: 80.0,
+          padding: const EdgeInsets.symmetric(vertical: 5.0),
+          height: 70,
           child: ListView(
-              scrollDirection: Axis.horizontal,
-              physics: const ScrollPhysics(),
-              key: PageStorageKey<Match>(cells),
-              shrinkWrap: true,
-              children: [
-                barChart(cells.players[0].shootTotal, cells.players[1].shootTotal, message: "슈팅\n${cells.players[0].shootTotal} : ${cells.players[1].shootTotal}",),
-                barChart(cells.players[0].effectiveShootTotal, cells.players[1].effectiveShootTotal, message: "유효슈팅\n${cells.players[0].effectiveShootTotal} : ${cells.players[1].effectiveShootTotal}",),
-                barChart(cells.players[0].possession, cells.players[1].possession, message: "점유율\n${cells.players[0].possession} : ${cells.players[1].possession}",),
-                barChart(cells.players[0].passSuccessRate, cells.players[1].passSuccessRate, message: "패스 성공률\n${cells.players[0].passSuccessRate} : ${cells.players[1].passSuccessRate}",),
-                barChart(cells.players[0].tackleSuccess, cells.players[1].tackleSuccess, message: "태클\n${cells.players[0].tackleSuccess} : ${cells.players[1].tackleSuccess}",),
-                barChart(cells.players[0].cornerKick, cells.players[1].cornerKick, message: "코너킥\n${cells.players[0].cornerKick} : ${cells.players[1].cornerKick}",),
-                barChart(cells.players[0].foul, cells.players[1].foul, message: "파울\n${cells.players[0].foul} : ${cells.players[1].foul}",),
-                barChart(cells.players[0].card, cells.players[1].card, message: "경고\n${cells.players[0].card} : ${cells.players[1].card}",),
-              ],
+            scrollDirection: Axis.horizontal,
+            physics: const ScrollPhysics(),
+            key: PageStorageKey<Match>(cells),
+            shrinkWrap: true,
+            children: [
+              barChart(cells.players[0].shootTotal, cells.players[1].shootTotal, message: "슈팅\n${cells.players[0].shootTotal} : ${cells.players[1].shootTotal}",),
+              const VerticalDivider(),
+              barChart(cells.players[0].effectiveShootTotal, cells.players[1].effectiveShootTotal, message: "유효슈팅\n${cells.players[0].effectiveShootTotal} : ${cells.players[1].effectiveShootTotal}",),
+              const VerticalDivider(),
+              barChart(cells.players[0].possession, cells.players[1].possession, message: "점유율\n${cells.players[0].possession} : ${cells.players[1].possession}",),
+              const VerticalDivider(),
+              barChart(cells.players[0].passSuccessRate, cells.players[1].passSuccessRate, message: "패스 성공률\n${cells.players[0].passSuccessRate} : ${cells.players[1].passSuccessRate}",),
+              const VerticalDivider(),
+              barChart(cells.players[0].tackleSuccess, cells.players[1].tackleSuccess, message: "태클\n${cells.players[0].tackleSuccess} : ${cells.players[1].tackleSuccess}",),
+              const VerticalDivider(),
+              barChart(cells.players[0].cornerKick, cells.players[1].cornerKick, message: "코너킥\n${cells.players[0].cornerKick} : ${cells.players[1].cornerKick}",),
+              const VerticalDivider(),
+              barChart(cells.players[0].foul, cells.players[1].foul, message: "파울\n${cells.players[0].foul} : ${cells.players[1].foul}",),
+              const VerticalDivider(),
+              barChart(cells.players[0].card, cells.players[1].card, message: "경고\n${cells.players[0].card} : ${cells.players[1].card}",),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget barChart(int left, int right, {String message = "", int center = 0, double width = 100}) { /// TODO: 바 차트 구현, target/total
+  void launchOther(Player player) async {
+    await API.infoFromAccessId(player.accessId).then((get) async {
+      if (get.accessId != null) {
+        for (int i = 0; i < players.length; i++) {
+          if (players[i][0] == get.accessId) {
+            players.remove(players[i]);
+          }
+        }
+        players.insert(0, [get.accessId, get.nickname]);
+        if (players.length > 10) {
+          players.removeRange(10, players.length);
+        }
+        recent.writeAsStringSync(jsonEncode(players));
+        Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+                builder: (context) => DetailApp(
+                  id: get.accessId,
+                  nickname: get.nickname,
+                  level: get.level,
+                  matchtype: widget.matchtype,
+                )));
+      }
+    });
+  }
+
+  Widget barChart(int left, int right, {String message = "", int center = 0, double width = 100, align = 0}) { /// TODO: 바 차트 구현, target/total
     return Column(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           message,
           textAlign: TextAlign.center,
         ),
+        Padding(padding: EdgeInsets.all(2)),
         SizedBox(
           width: width,
-          height: width / 100,
+          height: width / 50,
           child: Row(
             children: [
               Expanded(
@@ -582,15 +619,216 @@ class _MyChangeState extends State<DetailApp> {
           content: SizedBox(
             width: MediaQuery.of(context).size.width * 0.9,
             height: MediaQuery.of(context).size.height * 0.8,
-            child: Center(
-              child: Expanded(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-
-                  ],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Expanded(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      Image.network(
+                      "https://fo4.dn.nexoncdn.co.kr/live/externalAssets/common/playersAction/p${npc.spId}.png",
+                        fit: BoxFit.contain, // Fixes border issues
+                        width: 100,
+                        height: 100,
+                      ),
+                      Padding(padding: EdgeInsets.only(bottom: 5)),
+                      Container(
+                        margin: EdgeInsets.all(5),
+                        padding: EdgeInsets.all(5),
+                        decoration: const BoxDecoration(
+                            color: Colors.grey,
+                            borderRadius: BorderRadius.all(Radius.circular(5.0))
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 1,
+                              child: Column(
+                                children: [
+                                  Text("선수 시즌"),
+                                  seasonid.containsKey(npc.spId ~/ 1000000) ? Image.network(
+                                    seasonid[npc.spId ~/ 1000000]['seasonImg'],
+                                    fit: BoxFit.cover, // Fixes border issues
+                                    width: 20,
+                                    height: 16,
+                                  ) : Container(),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Column(
+                                children: [
+                                  Text("강화 등급"),
+                                  Text(npc.grade.toString()),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Column(
+                                children: [
+                                  Text("포지션"),
+                                  Text(position[npc.position]!['desc'] as String),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        margin: EdgeInsets.all(5),
+                        padding: EdgeInsets.all(5),
+                        decoration: const BoxDecoration(
+                          color: Colors.grey,
+                          borderRadius: BorderRadius.all(Radius.circular(5.0))
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 1,
+                              child: Column(
+                                children: [
+                                  Text("골"),
+                                  Text(npc.goal.toString()),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Column(
+                                children: [
+                                  Text("도움"),
+                                  Text(npc.assist.toString()),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Column(
+                                children: [
+                                  Text("평점"),
+                                  Text(npc.rating.toString()),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        margin: EdgeInsets.only(top: 5, left: 5, right: 5),
+                        padding: EdgeInsets.all(5),
+                        child: Text("상세 지표")
+                      ),
+                      Container(
+                        margin: EdgeInsets.all(5),
+                        padding: EdgeInsets.all(5),
+                        decoration: const BoxDecoration(
+                            color: Colors.grey,
+                            borderRadius: BorderRadius.all(Radius.circular(5.0))
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: EdgeInsets.all(5),
+                              child: barChart(npc.effectiveShoot, npc.shoot - npc.effectiveShoot,
+                                  message: "유효 슈팅/슈팅 - ${npc.effectiveShoot}/${npc.shoot}",
+                                  width: MediaQuery.of(context).size.width * 0.8),
+                            ),
+                            Container(
+                              padding: EdgeInsets.all(5),
+                              child: barChart(npc.passSuccess, npc.passTry - npc.passSuccess,
+                                  message: "패스 성공/시도 - ${npc.passSuccess}/${npc.passTry}",
+                                  width: MediaQuery.of(context).size.width * 0.8),
+                            ),
+                            Container(
+                              padding: EdgeInsets.all(5),
+                              child: barChart(npc.dribbleSuccess, npc.dribbleTry - npc.dribbleSuccess,
+                                  message: "드리블 성공/시도 - ${npc.dribbleSuccess}/${npc.dribbleTry}",
+                                  width: MediaQuery.of(context).size.width * 0.8),
+                            ),
+                            Container(
+                              padding: EdgeInsets.all(5),
+                              child: barChart(npc.ballPossesionSuccess, npc.ballPossesionTry - npc.ballPossesionSuccess,
+                                  message: "볼 점유 성공/시도 - ${npc.ballPossesionSuccess}/${npc.ballPossesionTry}",
+                                  width: MediaQuery.of(context).size.width * 0.8),
+                            ),
+                            Container(
+                              padding: EdgeInsets.all(5),
+                              child: barChart(npc.aerialSuccess, npc.aerialTry - npc.aerialSuccess,
+                                  message: "공중볼 경합 성공/시도 - ${npc.aerialSuccess}/${npc.aerialTry}",
+                                  width: MediaQuery.of(context).size.width * 0.8),
+                            ),
+                          ]
+                        ),
+                      ),
+                      Container(
+                        margin: EdgeInsets.all(5),
+                        padding: EdgeInsets.all(5),
+                        decoration: const BoxDecoration(
+                            color: Colors.grey,
+                            borderRadius: BorderRadius.all(Radius.circular(5.0))
+                        ),
+                        child: Column(
+                            children: [
+                              barChart(npc.block, npc.blockTry - npc.block,
+                                  message: "블락 성공/시도 - ${npc.block}/${npc.blockTry}",
+                                  width: MediaQuery.of(context).size.width * 0.8),
+                              barChart(npc.tackle, npc.tackleTry - npc.tackle,
+                                  message: "태클 성공/시도 - ${npc.tackle}/${npc.tackleTry}",
+                                  width: MediaQuery.of(context).size.width * 0.8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text("인터셉트"),
+                                  Text(npc.intercept.toString()),
+                                ],
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text("디펜딩"),
+                                  Text(npc.defending.toString()),
+                                ],
+                              ),
+                            ]
+                        ),
+                      ),
+                      Container(
+                        margin: EdgeInsets.all(5),
+                        padding: EdgeInsets.all(5),
+                        decoration: const BoxDecoration(
+                            color: Colors.grey,
+                            borderRadius: BorderRadius.all(Radius.circular(5.0))
+                        ),
+                        child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text("옐로카드"),
+                                  Text(npc.yellowCards.toString()),
+                                ],
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text("레드카드"),
+                                  Text(npc.redCards.toString()),
+                                ],
+                              ),
+                            ]
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
           actions: <Widget>[
@@ -629,17 +867,18 @@ class _MyChangeState extends State<DetailApp> {
 }
 
 class MyPainter extends CustomPainter { //         <-- CustomPainter class
-  MyPainter({required this.shootings, required this.width})
+  MyPainter({required this.shootingsMe, required this.shootingsOther, required this.width})
       : super();
 
-  final List<Shoot> shootings;
+  final List<Shoot> shootingsMe;
+  final List<Shoot> shootingsOther;
   final double width;
 
   @override
   void paint(Canvas canvas, Size size) {
     var linePaint = Paint()
       ..color = Colors.black
-      ..strokeWidth = 1;
+      ..strokeWidth = 3;
 
     var assist = Paint()
       ..color = Colors.greenAccent
@@ -654,12 +893,12 @@ class MyPainter extends CustomPainter { //         <-- CustomPainter class
     var offtarget = Paint()
       ..color = Colors.red
       ..strokeCap = StrokeCap.round //rounded points
-      ..strokeWidth = 10;
+      ..strokeWidth = 5;
 
     var goal = Paint()
       ..color = Colors.yellow
       ..strokeCap = StrokeCap.round //rounded points
-      ..strokeWidth = 10;
+      ..strokeWidth = 20;
 
     //list of points
     List<List<Offset>> lines = [];
@@ -668,12 +907,35 @@ class MyPainter extends CustomPainter { //         <-- CustomPainter class
     List<Offset> offtargetPoints = [];
     List<Offset> goalPoints = [];
 
-    for (Shoot shooting in shootings) {
+    for (Shoot shooting in shootingsMe) {
       if (shooting.assist) {
         assistPoints.add(Offset(shooting.assistX * width, shooting.assistY * width / 640 * 406));
         List<Offset> assistGoal = [];
         assistGoal.add(Offset(shooting.assistX * width, shooting.assistY * width / 640 * 406));
         assistGoal.add(Offset(shooting.x * width, shooting.y * width / 640 * 406));
+        lines.add(assistGoal);
+      }
+
+      switch (shooting.result) {
+        case 1:
+          ontargetPoints.add(Offset(shooting.x * width, shooting.y * width / 640 * 406));
+          break;
+        case 3:
+          goalPoints.add(Offset(shooting.x * width, shooting.y * width / 640 * 406));
+          break;
+        default:
+          offtargetPoints.add(Offset(shooting.x * width, shooting.y * width / 640 * 406));
+          break;
+      }
+    }
+
+    for (Shoot shooting in shootingsOther) {
+      if (shooting.assist) {
+        assistPoints.add(Offset(shooting.assistX * width, shooting.assistY * width / 640 * 406));
+        List<Offset> assistGoal = [];
+        assistGoal.add(Offset(shooting.assistX * width, shooting.assistY * width / 640 * 406));
+        assistGoal.add(Offset(shooting.x * width, shooting.y * width / 640 * 406));
+        lines.add(assistGoal);
       }
 
       switch (shooting.result) {
@@ -697,6 +959,9 @@ class MyPainter extends CustomPainter { //         <-- CustomPainter class
 
     for (List<Offset> line in lines) {
       canvas.drawLine(line.first, line.last, linePaint);
+      /// 화살표 그리기
+      // canvas.drawLine(line.first, line.last, linePaint);
+      // canvas.drawLine(line.first, line.last, linePaint);
     }
   }
 
@@ -734,7 +999,7 @@ const position = {
   25: {'x': 7/8, 'y': 0.5, 'desc': "ST"},
   26: {'x': 7/8, 'y': 0.5 - 1/6, 'desc': "LS"},
   27: {'x': 13/16, 'y': 0.5 - 2/6, 'desc': "LW"},
-  28: {'x': 0, 'y': 0, 'desc': "SUB"},
+  // 28: {'x': 13/16, 'y': 0.5, 'desc': "SUB"},
 };
 
 const division = {
