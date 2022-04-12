@@ -28,6 +28,7 @@ class _MyChangeState extends State<DetailApp> {
   late String dir;
 
   bool loading = true;
+  bool adding = false;
 
   int index = 1;
 
@@ -39,10 +40,13 @@ class _MyChangeState extends State<DetailApp> {
   DateTime now = DateTime.now();
 
   final cells = [];
+  late ScrollController controller;
+  bool end = false; // 끝이 나면 lazy 로딩 더 이상 못 하도록...
 
   int win = 0;
   int draw = 0;
   int lose = 0;
+
 
   int scoringPoint = 0;
   int losingPoint = 0;
@@ -82,43 +86,39 @@ class _MyChangeState extends State<DetailApp> {
 
   @override
   void initState() {
+    super.initState();
+    controller = ScrollController()..addListener(_scrollListener);
     bannerAd = Ads.createBannerAd();
     Ads.showBannerAd(bannerAd);
 
     now = DateTime.now();
 
     _init();
-    super.initState();
   }
 
   @override
   void dispose() {
+    controller.removeListener(_scrollListener);
     super.dispose();
   }
 
-  Future<void> update() async {
-    setState(() {
-      loading = true;
-      cells.clear();
-      title = "";
-      win = 0;
-      draw = 0;
-      lose = 0;
-      scoringPoint = 0;
-      losingPoint = 0;
-    });
-
-    List<MaxDivision> maxdivisions = await API.maxdivision(widget.id);
-    for (final maxdivision in maxdivisions) {
-      if (maxdivision.matchType == widget.matchtype) {
-        setState(() {
-          title = division[maxdivision.division]!["divisionName"]!;
-        });
-        break;
-      }
+  void _scrollListener() async {
+    if (!end && !adding && controller.position.extentAfter < 500) {
+      adding = true;
+      await addCells();
+      setState(() {
+        cells;
+      });
+      adding = false;
     }
+  }
 
-    List<dynamic> matchIds = await API.matchIds(widget.id, matchtype: widget.matchtype, limit: 10);
+  Future<void> addCells({number = 10}) async {
+    List<dynamic> matchIds = await API.matchIds(widget.id, matchtype: widget.matchtype, offset: cells.length, limit: number);
+
+    if (matchIds.length < number) {
+      end = true;
+    }
 
     for (final matchId in matchIds) {
       final details = await API.match(matchId);
@@ -126,8 +126,9 @@ class _MyChangeState extends State<DetailApp> {
 
       List<Player> players = [];
 
-      for (int i = 0; i < details['matchInfo']!.length; i++) {
-        final matchInfo = details['matchInfo'][i];
+      for (int i = 0; i < 2; i++) {
+
+        final matchInfo = details['matchInfo'][details['matchInfo']!.length < 2 ? 0 : i]; // 상대 데이터가 존재하지 않는 경우 임시조치
 
         List<NPC> npcs = [];
         for (int j = 0; j < matchInfo['player']!.length; j++) {
@@ -212,6 +213,32 @@ class _MyChangeState extends State<DetailApp> {
         screen: 0,
       ));
     }
+  }
+
+  Future<void> update() async {
+    setState(() {
+      loading = true;
+      cells.clear();
+      title = "";
+      win = 0;
+      draw = 0;
+      lose = 0;
+      end = false;
+      scoringPoint = 0;
+      losingPoint = 0;
+    });
+
+    List<MaxDivision> maxdivisions = await API.maxdivision(widget.id);
+    for (final maxdivision in maxdivisions) {
+      if (maxdivision.matchType == widget.matchtype) {
+        setState(() {
+          title = division[maxdivision.division]!["divisionName"]!;
+        });
+        break;
+      }
+    }
+
+    await addCells(number: 20);
 
     setState(() {
       now = DateTime.now();
@@ -253,7 +280,7 @@ class _MyChangeState extends State<DetailApp> {
             ),
           ],
           bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(20.0),
+            preferredSize: const Size.fromHeight(120.0),
             child: Column(
               children: [
                 Row(
@@ -266,6 +293,30 @@ class _MyChangeState extends State<DetailApp> {
                 ),
                 const Padding(
                   padding: EdgeInsets.only(bottom: 5),
+                ),
+                Text(
+                  "최근 ${cells.length}경기 기준",
+                  textAlign: TextAlign.center,
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 5),
+                ),
+                barChart(
+                    win, lose,
+                    message: "$win승 $draw무 $lose패",
+                    center: draw,
+                    width: MediaQuery.of(context).size.width * 0.8
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 16),
+                ),
+                barChart(
+                    scoringPoint, losingPoint,
+                    message: "최근 경기 득/실점 - $scoringPoint/$losingPoint",
+                    width: MediaQuery.of(context).size.width * 0.8
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 5),
                 ),
               ],
             ),
@@ -292,32 +343,9 @@ class _MyChangeState extends State<DetailApp> {
                   ])
                 : RefreshIndicator(
                     child: ListView(
+                      controller: controller,
                       children: cells.isNotEmpty
                           ? <Widget>[
-                            const Padding(
-                              padding: EdgeInsets.only(top: 10),
-                            ),
-                            Text(
-                              "최근 ${cells.length}경기 기준",
-                              textAlign: TextAlign.center,
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.only(top: 10),
-                            ),
-                            barChart(
-                              win, lose,
-                              message: "$win승 $draw무 $lose패",
-                              center: draw,
-                              width: MediaQuery.of(context).size.width * 0.8
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.only(top: 16),
-                            ),
-                            barChart(
-                                scoringPoint, losingPoint,
-                                message: "최근 경기 득/실점 - $scoringPoint/$losingPoint",
-                                width: MediaQuery.of(context).size.width * 0.8
-                            ),
                             const Padding(
                               padding: EdgeInsets.only(top: 10),
                             ),
@@ -329,7 +357,6 @@ class _MyChangeState extends State<DetailApp> {
                               itemBuilder: (BuildContext _context, int i) {
                                 if (i == cells.length) {
                                   return const ListTile(
-                                    isThreeLine: true,
                                     subtitle: Text(""),
                                   );
                                 }
@@ -544,29 +571,31 @@ class _MyChangeState extends State<DetailApp> {
   }
 
   void launchOther(Player player) async {
-    await API.infoFromAccessId(player.accessId).then((get) async {
-      if (get.accessId != null) {
-        for (int i = 0; i < players.length; i++) {
-          if (players[i][0] == get.accessId) {
-            players.remove(players[i]);
+    if (player.accessId != widget.id) {
+      await API.infoFromAccessId(player.accessId).then((get) async {
+        if (get.accessId != null) {
+          for (int i = 0; i < players.length; i++) {
+            if (players[i][0] == get.accessId) {
+              players.remove(players[i]);
+            }
           }
+          players.insert(0, [get.accessId, get.nickname]);
+          if (players.length > 10) {
+            players.removeRange(10, players.length);
+          }
+          recent.writeAsStringSync(jsonEncode(players));
+          Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => DetailApp(
+                    id: get.accessId,
+                    nickname: get.nickname,
+                    level: get.level,
+                    matchtype: widget.matchtype,
+                  )));
         }
-        players.insert(0, [get.accessId, get.nickname]);
-        if (players.length > 10) {
-          players.removeRange(10, players.length);
-        }
-        recent.writeAsStringSync(jsonEncode(players));
-        Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-                builder: (context) => DetailApp(
-                  id: get.accessId,
-                  nickname: get.nickname,
-                  level: get.level,
-                  matchtype: widget.matchtype,
-                )));
-      }
-    });
+      });
+    }
   }
 
   Widget barChart(int left, int right, {String message = "", int center = 0, double width = 100, align = 0}) { /// TODO: 바 차트 구현, target/total
@@ -775,28 +804,40 @@ class _MyChangeState extends State<DetailApp> {
                             borderRadius: BorderRadius.all(Radius.circular(5.0))
                         ),
                         child: Column(
-                            children: [
-                              barChart(npc.block, npc.blockTry - npc.block,
-                                  message: "블락 성공/시도 - ${npc.block}/${npc.blockTry}",
-                                  width: MediaQuery.of(context).size.width * 0.8),
-                              barChart(npc.tackle, npc.tackleTry - npc.tackle,
-                                  message: "태클 성공/시도 - ${npc.tackle}/${npc.tackleTry}",
-                                  width: MediaQuery.of(context).size.width * 0.8),
-                              Row(
+                          children: [
+                            Container(
+                            padding: EdgeInsets.all(5),
+                              child: barChart(npc.block, npc.blockTry - npc.block,
+                                message: "블락 성공/시도 - ${npc.block}/${npc.blockTry}",
+                                width: MediaQuery.of(context).size.width * 0.8),
+                            ),
+                            Container(
+                              padding: EdgeInsets.all(5),
+                              child: barChart(npc.tackle, npc.tackleTry - npc.tackle,
+                                message: "태클 성공/시도 - ${npc.tackle}/${npc.tackleTry}",
+                                width: MediaQuery.of(context).size.width * 0.8),
+                            ),
+                            Container(
+                              padding: EdgeInsets.all(5),
+                              child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text("인터셉트"),
                                   Text(npc.intercept.toString()),
                                 ],
                               ),
-                              Row(
+                            ),
+                            Container(
+                              padding: EdgeInsets.all(5),
+                              child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text("디펜딩"),
                                   Text(npc.defending.toString()),
                                 ],
                               ),
-                            ]
+                            ),
+                          ]
                         ),
                       ),
                       Container(
@@ -808,19 +849,25 @@ class _MyChangeState extends State<DetailApp> {
                         ),
                         child: Column(
                             children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text("옐로카드"),
-                                  Text(npc.yellowCards.toString()),
-                                ],
+                              Container(
+                                padding: EdgeInsets.all(5),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text("옐로카드"),
+                                    Text(npc.yellowCards.toString()),
+                                  ],
+                                ),
                               ),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text("레드카드"),
-                                  Text(npc.redCards.toString()),
-                                ],
+                              Container(
+                                padding: EdgeInsets.all(5),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text("레드카드"),
+                                    Text(npc.redCards.toString()),
+                                  ],
+                                ),
                               ),
                             ]
                         ),
