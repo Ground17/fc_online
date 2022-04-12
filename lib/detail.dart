@@ -30,8 +30,6 @@ class _MyChangeState extends State<DetailApp> {
   bool loading = true;
   bool adding = false;
 
-  int index = 1;
-
   late Map<int, dynamic> spid;
   late Map<int, dynamic> seasonid;
 
@@ -46,7 +44,6 @@ class _MyChangeState extends State<DetailApp> {
   int win = 0;
   int draw = 0;
   int lose = 0;
-
 
   int scoringPoint = 0;
   int losingPoint = 0;
@@ -445,6 +442,14 @@ class _MyChangeState extends State<DetailApp> {
                         fit: BoxFit.cover, // Fixes border issues
                         width: 32,
                         height: 32,
+                        errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
+                          return Image.asset(
+                            'assets/person.png',
+                            fit: BoxFit.cover, // Fixes border issues
+                            width: 32,
+                            height: 32,
+                          );
+                        },
                       ),
                     ),
                     Text("${position[item.position]?['desc'] as String} (${item.rating})",
@@ -530,7 +535,7 @@ class _MyChangeState extends State<DetailApp> {
         ),
         GestureDetector(
           key: PageStorageKey<Match>(cells),
-          onTap: () { /// 포메이션, 어시스트/슛 (터치 시 화면 바꾸기)
+          onTap: () { // 포메이션, 어시스트/슛 (터치 시 화면 바꾸기)
             setState(() {
               cells.screen = (cells.screen + 1) % 2;
             });
@@ -539,7 +544,7 @@ class _MyChangeState extends State<DetailApp> {
             children: cells.screen == 0 ? formations : shootlines,
           ),
         ),
-        Container( /// 슈팅, 유효슈팅, 점유율, 패스 성공률, 태클, 코너킥, 파울, 경고
+        Container( // 슈팅, 유효슈팅, 점유율, 패스 성공률, 태클, 코너킥, 파울, 경고
           padding: const EdgeInsets.symmetric(vertical: 5.0),
           height: 70,
           child: ListView(
@@ -598,7 +603,7 @@ class _MyChangeState extends State<DetailApp> {
     }
   }
 
-  Widget barChart(int left, int right, {String message = "", int center = 0, double width = 100, align = 0}) { /// TODO: 바 차트 구현, target/total
+  Widget barChart(int left, int right, {String message = "", int center = 0, double width = 100, align = 0}) { // 바 차트, target/total
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -638,7 +643,7 @@ class _MyChangeState extends State<DetailApp> {
     );
   }
 
-  Future<void> alertNPC(NPC npc) async { /// TODO: 선수 세부정보 표시
+  Future<void> alertNPC(NPC npc) async { // 선수 세부정보 표시
     return showDialog<void>(
       context: context,
       barrierDismissible: false, // user must tap button!
@@ -660,6 +665,14 @@ class _MyChangeState extends State<DetailApp> {
                         fit: BoxFit.contain, // Fixes border issues
                         width: 100,
                         height: 100,
+                        errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
+                          return Image.asset(
+                            'assets/person.png',
+                            fit: BoxFit.contain, // Fixes border issues
+                            width: 100,
+                            height: 100,
+                          );
+                        },
                       ),
                       Padding(padding: EdgeInsets.only(bottom: 5)),
                       Container(

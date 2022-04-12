@@ -15,6 +15,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 
 import 'detail.dart';
+import 'trade.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -207,6 +208,24 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  Widget _trade() {
+    return Padding(
+      padding: const EdgeInsets.all(0.0),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(primary: Colors.white),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => TradeApp()),
+          );
+        },
+        child: const Text('거래 내역 조회',
+            style: TextStyle(fontSize: 20.0, color: Colors.teal)),
+      ),
+    );
+  }
+
   void _validateAndSubmit() async {
     final form = _formKey.currentState;
     if (form!.validate()) {
@@ -310,6 +329,7 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             _showEmailInput(),
             _submit(),
+            _trade(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: <Widget>[

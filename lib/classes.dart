@@ -116,6 +116,22 @@ class User {
   }
 }
 
+class Trade {
+  final String tradeDate;
+  final String saleSn;
+  final int spid;
+  final int grade;
+  final int value;
+
+  Trade({
+    required this.tradeDate,
+    required this.saleSn,
+    required this.spid,
+    required this.grade,
+    required this.value,
+  });
+}
+
 class MaxDivision {
   final int matchType;
   final int division;
