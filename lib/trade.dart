@@ -42,19 +42,24 @@ class _MyChangeState extends State<TradeApp> {
 
   void _init() async {
     dir = (await getApplicationDocumentsDirectory()).path;
-    final spid_json = jsonDecode(File('$dir/spid.json').readAsStringSync());
-    final seasonid_json = jsonDecode(File('$dir/seasonid.json').readAsStringSync());
-
     spid = <int, dynamic>{};
     seasonid = <int, dynamic>{};
 
-    for (int i = 0; i < spid_json.length; i++) {
-      spid[spid_json[i]['id']] = {'name': spid_json[i]['name']};
+    try {
+      final spid_json = jsonDecode(File('$dir/spid.json').readAsStringSync());
+      final seasonid_json = jsonDecode(File('$dir/seasonid.json').readAsStringSync());
+
+      for (int i = 0; i < spid_json.length; i++) {
+        spid[spid_json[i]['id']] = {'name': spid_json[i]['name']};
+      }
+
+      for (int i = 0; i < seasonid_json.length; i++) {
+        seasonid[seasonid_json[i]['seasonId']] = {'className': seasonid_json[i]['className'], 'seasonImg': seasonid_json[i]['seasonImg']};
+      }
+    } catch (e) {
+      print(e);
     }
 
-    for (int i = 0; i < seasonid_json.length; i++) {
-      seasonid[seasonid_json[i]['seasonId']] = {'className': seasonid_json[i]['className'], 'seasonImg': seasonid_json[i]['seasonImg']};
-    }
   }
 
   @override
@@ -296,36 +301,35 @@ class _MyChangeState extends State<TradeApp> {
         child: Image.network(
           "https://fo4.dn.nexoncdn.co.kr/live/externalAssets/common/playersAction/p${cells.spid}.png",
           fit: BoxFit.contain, // Fixes border issues
-          width: 100,
-          height: 100,
+          width: 64,
+          height: 64,
           errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
             return Image.asset(
               'assets/person.png',
-              fit: BoxFit.cover, // Fixes border issues
+              fit: BoxFit.contain, // Fixes border issues
+              width: 64,
+              height: 64,
             );
           },
         ),
-        // FadeInImage.assetNetwork(
-        //   placeholder: 'assets/person.png',
-        //   image: "https://fo4.dn.nexoncdn.co.kr/live/externalAssets/common/playersAction/p${cells.spid}.png",
-        //   imageErrorBuilder: (BuildContext, Object, StackTrace) {
-        //
-        //   },
-        // ),
       ),
       title: Text(spid.containsKey(cells.spid) ? spid[cells.spid]['name'] : "알 수 없음"),
-      subtitle: Text(cells.value.toString() + " BD"),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text("+${cells.grade}"),
-          seasonid.containsKey(cells.spid ~/ 1000000) ? Image.network(
-            seasonid[cells.spid ~/ 1000000]['seasonImg'],
-            fit: BoxFit.cover, // Fixes border issues
-            width: 20,
-            height: 16,
-          ) : Container(),
-        ],
+      subtitle: Text(cells.value.toString() + " BP"),
+      trailing: SizedBox(
+        width: 32,
+        height: 64,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text("+${cells.grade}"),
+            seasonid.containsKey(cells.spid ~/ 1000000) ? Image.network(
+              seasonid[cells.spid ~/ 1000000]['seasonImg'],
+              fit: BoxFit.cover, // Fixes border issues
+              width: 20,
+              height: 16,
+            ) : Container(),
+          ],
+        ),
       ),
     );
   }

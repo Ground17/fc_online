@@ -61,18 +61,21 @@ class _MyChangeState extends State<DetailApp> {
 
   void _init() async {
     dir = (await getApplicationDocumentsDirectory()).path;
-    final spid_json = jsonDecode(File('$dir/spid.json').readAsStringSync());
-    final seasonid_json = jsonDecode(File('$dir/seasonid.json').readAsStringSync());
-
     spid = <int, dynamic>{};
     seasonid = <int, dynamic>{};
+    try {
+      final spid_json = jsonDecode(File('$dir/spid.json').readAsStringSync());
+      final seasonid_json = jsonDecode(File('$dir/seasonid.json').readAsStringSync());
 
-    for (int i = 0; i < spid_json.length; i++) {
-      spid[spid_json[i]['id']] = {'name': spid_json[i]['name']};
-    }
+      for (int i = 0; i < spid_json.length; i++) {
+        spid[spid_json[i]['id']] = {'name': spid_json[i]['name']};
+      }
 
-    for (int i = 0; i < seasonid_json.length; i++) {
-      seasonid[seasonid_json[i]['seasonId']] = {'className': seasonid_json[i]['className'], 'seasonImg': seasonid_json[i]['seasonImg']};
+      for (int i = 0; i < seasonid_json.length; i++) {
+        seasonid[seasonid_json[i]['seasonId']] = {'className': seasonid_json[i]['className'], 'seasonImg': seasonid_json[i]['seasonImg']};
+      }
+    } catch (e) {
+      print(e);
     }
 
     recent = File('$dir/recent.txt');
@@ -235,7 +238,7 @@ class _MyChangeState extends State<DetailApp> {
       }
     }
 
-    await addCells(number: 20);
+    await addCells(number: 10);
 
     setState(() {
       now = DateTime.now();
@@ -649,7 +652,7 @@ class _MyChangeState extends State<DetailApp> {
       barrierDismissible: false, // user must tap button!
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text(spid[npc.spId]['name']),
+          title: Text(spid.containsKey(npc.spId) ? spid[npc.spId]['name']: ""),
           content: SizedBox(
             width: MediaQuery.of(context).size.width * 0.9,
             height: MediaQuery.of(context).size.height * 0.8,
@@ -674,10 +677,10 @@ class _MyChangeState extends State<DetailApp> {
                           );
                         },
                       ),
-                      Padding(padding: EdgeInsets.only(bottom: 5)),
+                      const Padding(padding: EdgeInsets.only(bottom: 5)),
                       Container(
-                        margin: EdgeInsets.all(5),
-                        padding: EdgeInsets.all(5),
+                        margin: const EdgeInsets.all(5),
+                        padding: const EdgeInsets.all(5),
                         decoration: const BoxDecoration(
                             color: Colors.grey,
                             borderRadius: BorderRadius.all(Radius.circular(5.0))
@@ -690,7 +693,7 @@ class _MyChangeState extends State<DetailApp> {
                               flex: 1,
                               child: Column(
                                 children: [
-                                  Text("선수 시즌"),
+                                  const Text("선수 시즌"),
                                   seasonid.containsKey(npc.spId ~/ 1000000) ? Image.network(
                                     seasonid[npc.spId ~/ 1000000]['seasonImg'],
                                     fit: BoxFit.cover, // Fixes border issues
@@ -704,7 +707,7 @@ class _MyChangeState extends State<DetailApp> {
                               flex: 1,
                               child: Column(
                                 children: [
-                                  Text("강화 등급"),
+                                  const Text("강화 등급"),
                                   Text(npc.grade.toString()),
                                 ],
                               ),
@@ -713,7 +716,7 @@ class _MyChangeState extends State<DetailApp> {
                               flex: 1,
                               child: Column(
                                 children: [
-                                  Text("포지션"),
+                                  const Text("포지션"),
                                   Text(position[npc.position]!['desc'] as String),
                                 ],
                               ),
@@ -722,8 +725,8 @@ class _MyChangeState extends State<DetailApp> {
                         ),
                       ),
                       Container(
-                        margin: EdgeInsets.all(5),
-                        padding: EdgeInsets.all(5),
+                        margin: const EdgeInsets.all(5),
+                        padding: const EdgeInsets.all(5),
                         decoration: const BoxDecoration(
                           color: Colors.grey,
                           borderRadius: BorderRadius.all(Radius.circular(5.0))
@@ -736,7 +739,7 @@ class _MyChangeState extends State<DetailApp> {
                               flex: 1,
                               child: Column(
                                 children: [
-                                  Text("골"),
+                                  const Text("골"),
                                   Text(npc.goal.toString()),
                                 ],
                               ),
@@ -745,7 +748,7 @@ class _MyChangeState extends State<DetailApp> {
                               flex: 1,
                               child: Column(
                                 children: [
-                                  Text("도움"),
+                                  const Text("도움"),
                                   Text(npc.assist.toString()),
                                 ],
                               ),
@@ -754,7 +757,7 @@ class _MyChangeState extends State<DetailApp> {
                               flex: 1,
                               child: Column(
                                 children: [
-                                  Text("평점"),
+                                  const Text("평점"),
                                   Text(npc.rating.toString()),
                                 ],
                               ),
@@ -763,13 +766,13 @@ class _MyChangeState extends State<DetailApp> {
                         ),
                       ),
                       Container(
-                        margin: EdgeInsets.only(top: 5, left: 5, right: 5),
-                        padding: EdgeInsets.all(5),
-                        child: Text("상세 지표")
+                        margin: const EdgeInsets.only(top: 5, left: 5, right: 5),
+                        padding: const EdgeInsets.all(5),
+                        child: const Text("상세 지표")
                       ),
                       Container(
-                        margin: EdgeInsets.all(5),
-                        padding: EdgeInsets.all(5),
+                        margin: const EdgeInsets.all(5),
+                        padding: const EdgeInsets.all(5),
                         decoration: const BoxDecoration(
                             color: Colors.grey,
                             borderRadius: BorderRadius.all(Radius.circular(5.0))
@@ -777,31 +780,31 @@ class _MyChangeState extends State<DetailApp> {
                         child: Column(
                           children: [
                             Container(
-                              padding: EdgeInsets.all(5),
+                              padding: const EdgeInsets.all(5),
                               child: barChart(npc.effectiveShoot, npc.shoot - npc.effectiveShoot,
                                   message: "유효 슈팅/슈팅 - ${npc.effectiveShoot}/${npc.shoot}",
                                   width: MediaQuery.of(context).size.width * 0.8),
                             ),
                             Container(
-                              padding: EdgeInsets.all(5),
+                              padding: const EdgeInsets.all(5),
                               child: barChart(npc.passSuccess, npc.passTry - npc.passSuccess,
                                   message: "패스 성공/시도 - ${npc.passSuccess}/${npc.passTry}",
                                   width: MediaQuery.of(context).size.width * 0.8),
                             ),
                             Container(
-                              padding: EdgeInsets.all(5),
+                              padding: const EdgeInsets.all(5),
                               child: barChart(npc.dribbleSuccess, npc.dribbleTry - npc.dribbleSuccess,
                                   message: "드리블 성공/시도 - ${npc.dribbleSuccess}/${npc.dribbleTry}",
                                   width: MediaQuery.of(context).size.width * 0.8),
                             ),
                             Container(
-                              padding: EdgeInsets.all(5),
+                              padding: const EdgeInsets.all(5),
                               child: barChart(npc.ballPossesionSuccess, npc.ballPossesionTry - npc.ballPossesionSuccess,
                                   message: "볼 점유 성공/시도 - ${npc.ballPossesionSuccess}/${npc.ballPossesionTry}",
                                   width: MediaQuery.of(context).size.width * 0.8),
                             ),
                             Container(
-                              padding: EdgeInsets.all(5),
+                              padding: const EdgeInsets.all(5),
                               child: barChart(npc.aerialSuccess, npc.aerialTry - npc.aerialSuccess,
                                   message: "공중볼 경합 성공/시도 - ${npc.aerialSuccess}/${npc.aerialTry}",
                                   width: MediaQuery.of(context).size.width * 0.8),
@@ -810,8 +813,8 @@ class _MyChangeState extends State<DetailApp> {
                         ),
                       ),
                       Container(
-                        margin: EdgeInsets.all(5),
-                        padding: EdgeInsets.all(5),
+                        margin: const EdgeInsets.all(5),
+                        padding: const EdgeInsets.all(5),
                         decoration: const BoxDecoration(
                             color: Colors.grey,
                             borderRadius: BorderRadius.all(Radius.circular(5.0))
@@ -819,33 +822,33 @@ class _MyChangeState extends State<DetailApp> {
                         child: Column(
                           children: [
                             Container(
-                            padding: EdgeInsets.all(5),
+                            padding: const EdgeInsets.all(5),
                               child: barChart(npc.block, npc.blockTry - npc.block,
                                 message: "블락 성공/시도 - ${npc.block}/${npc.blockTry}",
                                 width: MediaQuery.of(context).size.width * 0.8),
                             ),
                             Container(
-                              padding: EdgeInsets.all(5),
+                              padding: const EdgeInsets.all(5),
                               child: barChart(npc.tackle, npc.tackleTry - npc.tackle,
                                 message: "태클 성공/시도 - ${npc.tackle}/${npc.tackleTry}",
                                 width: MediaQuery.of(context).size.width * 0.8),
                             ),
                             Container(
-                              padding: EdgeInsets.all(5),
+                              padding: const EdgeInsets.all(5),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text("인터셉트"),
+                                  const Text("인터셉트"),
                                   Text(npc.intercept.toString()),
                                 ],
                               ),
                             ),
                             Container(
-                              padding: EdgeInsets.all(5),
+                              padding: const EdgeInsets.all(5),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text("디펜딩"),
+                                  const Text("디펜딩"),
                                   Text(npc.defending.toString()),
                                 ],
                               ),
@@ -854,8 +857,8 @@ class _MyChangeState extends State<DetailApp> {
                         ),
                       ),
                       Container(
-                        margin: EdgeInsets.all(5),
-                        padding: EdgeInsets.all(5),
+                        margin: const EdgeInsets.all(5),
+                        padding: const EdgeInsets.all(5),
                         decoration: const BoxDecoration(
                             color: Colors.grey,
                             borderRadius: BorderRadius.all(Radius.circular(5.0))
@@ -863,21 +866,21 @@ class _MyChangeState extends State<DetailApp> {
                         child: Column(
                             children: [
                               Container(
-                                padding: EdgeInsets.all(5),
+                                padding: const EdgeInsets.all(5),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text("옐로카드"),
+                                    const Text("옐로카드"),
                                     Text(npc.yellowCards.toString()),
                                   ],
                                 ),
                               ),
                               Container(
-                                padding: EdgeInsets.all(5),
+                                padding: const EdgeInsets.all(5),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text("레드카드"),
+                                    const Text("레드카드"),
                                     Text(npc.redCards.toString()),
                                   ],
                                 ),

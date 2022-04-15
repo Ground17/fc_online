@@ -31,7 +31,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       key: key,
-      title: '피파4 전적 검색 17%',
+      title: '피온4 전적 검색 17%',
       theme: ThemeData(
         brightness: Brightness.light,
         primarySwatch: Colors.teal,
@@ -43,7 +43,7 @@ class MyApp extends StatelessWidget {
         primaryColor: Colors.teal[800],
       ),
       themeMode: ThemeMode.system,
-      home: const MyHomePage(title: '피파4 전적 검색 17%',),
+      home: const MyHomePage(title: '피온4 전적 검색 17%',),
     );
   }
 }
@@ -60,6 +60,7 @@ class _MyHomePageState extends State<MyHomePage> {
   final _formKey = GlobalKey<FormState>();
   String _email = "";
   bool _isLoading = false;
+  bool _isSpid = true;
   String dir = "";
 
   late File recent;
@@ -125,7 +126,6 @@ class _MyHomePageState extends State<MyHomePage> {
   void _initFile() async {
     dir = (await getApplicationDocumentsDirectory()).path;
 
-
     recent = File('$dir/recent.txt');
 
     spid = File('$dir/spid.json');
@@ -138,11 +138,18 @@ class _MyHomePageState extends State<MyHomePage> {
     players = jsonDecode(recent.readAsStringSync());
 
     if (!await spid.exists()) {
-      total = await getTotal();
+      // total = await getTotal();
+      // setState(() {
+      //   _isLoading = true;
+      // });
+      // await checkMetaInit();
       setState(() {
-        _isLoading = true;
+        _isSpid = false;
       });
-      await checkMetaInit();
+    } else {
+      setState(() {
+        _isSpid = true;
+      });
     }
   }
 
@@ -198,7 +205,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Widget _submit() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0.0, 30.0, 0.0, 0.0),
+      padding: const EdgeInsets.fromLTRB(0.0, 10.0, 0.0, 0.0),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(primary: Colors.teal[800]),
         onPressed: _validateAndSubmit,
@@ -223,6 +230,20 @@ class _MyHomePageState extends State<MyHomePage> {
         child: const Text('거래 내역 조회',
             style: TextStyle(fontSize: 20.0, color: Colors.teal)),
       ),
+    );
+  }
+
+  Widget _showDownload() {
+    return RichText(
+      textAlign: TextAlign.center,
+      text: TextSpan(
+          text: "선수 정보 표시 등을 위해선 메타데이터 다운로드가 필요합니다. 여기를 눌러 다운로드할 수 있습니다.",
+          style: const TextStyle(color: Colors.blue),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () async {
+              total = await getTotal();
+              await checkMetaInit(option: true);
+            }),
     );
   }
 
@@ -281,7 +302,7 @@ class _MyHomePageState extends State<MyHomePage> {
             const Padding(
               padding: EdgeInsets.all(16.0),
               child: Text(
-                  "서버에서 새 메타데이터를 다운로드 받는 중입니다. 몇 분 정도 소요될 수 있습니다. "
+                  "서버에서 새 메타데이터를 다운로드 받는 중입니다. 몇 초 정도 소요될 수 있습니다. "
                       "더 나은 어플 사용을 위해 반드시 필요한 작업이므로 양해 부탁드립니다.\n"
                       "다운로드가 너무 오래 걸리는 경우엔 네트워크 환경이 안정적인지 확인해주신 후, 어플을 재부팅해주시면 감사하겠습니다.\n"
               ),
@@ -328,6 +349,7 @@ class _MyHomePageState extends State<MyHomePage> {
               child: _showDropDown(),
             ),
             _showEmailInput(),
+            _isSpid ? Container() : _showDownload(),
             _submit(),
             _trade(),
             Row(
@@ -403,9 +425,8 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
               tooltip: "메타데이터 업데이트",
               onPressed: () async {
-
                 total = await getTotal();
-                checkMetaInit(option: true);
+                await checkMetaInit(option: true);
               },
             )
                 : Container(),
@@ -631,6 +652,7 @@ class _MyHomePageState extends State<MyHomePage> {
         });
       }, onDone: () async {
         _isLoading = false;
+        _isSpid = true;
       }, onError: (e) async {
         print(e);
         alert("다운로드 중 오류가 발생했습니다. 네트워크, 저장공간 등을 확인해주세요.");
