@@ -282,10 +282,10 @@ class _MyChangeState extends State<TradeApp> {
 
   Widget _buildRow(Trade cells) {
     DateTime tradeDate = DateFormat('yyyy-MM-dd HH:mm:ss')
-        .parse(cells.tradeDate.replaceFirst("T", " "))
-        .add(const Duration(hours: 9)); // 한국 시간 기준
+        .parse(cells.tradeDate.replaceFirst("T", " ")); // 한국 시간 기준
+
     return ListTile(
-      onTap: () => alert("상세 시간", cells.tradeDate.replaceFirst("T", " ") + "\n" +
+      onTap: () => alert("상세 시간", tradeDate.toString() + "\n" +
           (now.difference(tradeDate).inDays != 0
           ? "${now.difference(tradeDate).inDays}일 전"
           : (now.difference(tradeDate).inHours != 0

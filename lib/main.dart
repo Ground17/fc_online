@@ -71,6 +71,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
   late File spid;
 
+  late Timer _timer;
+  late Color _color = Colors.blueAccent;
+
   List<dynamic> dropdownValues = [
     {
       "matchtype": 30,
@@ -101,7 +104,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    AppTrackingTransparency.requestTrackingAuthorization();
+    _timer = Timer.periodic(const Duration(seconds: 2), (timer) => _changeColor());
     _initFile();
     Ads.showBannerAd(bannerAd);
   }
@@ -109,6 +112,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void dispose() {
     Ads.hideBannerAd(bannerAd);
+    _timer.cancel();
     super.dispose();
   }
 
@@ -151,6 +155,21 @@ class _MyHomePageState extends State<MyHomePage> {
         _isSpid = true;
       });
     }
+
+    if (await AppTrackingTransparency.trackingAuthorizationStatus ==
+        TrackingStatus.notDetermined) {
+      // Wait for dialog popping animation
+      await Future.delayed(const Duration(milliseconds: 200));
+      // Request system's tracking authorization dialog
+      await AppTrackingTransparency.requestTrackingAuthorization();
+    }
+  }
+
+  void _changeColor() {
+    final newColor = _color == Colors.blueAccent ? Colors.tealAccent : Colors.blueAccent;
+    setState(() {
+      _color = newColor;
+    });
   }
 
   Widget _showDropDown() {
@@ -238,7 +257,7 @@ class _MyHomePageState extends State<MyHomePage> {
       textAlign: TextAlign.center,
       text: TextSpan(
           text: "선수 정보 표시 등을 위해선 메타데이터 다운로드가 필요합니다. 여기를 눌러 다운로드할 수 있습니다.",
-          style: const TextStyle(color: Colors.blue),
+          style: TextStyle(color: _color),
           recognizer: TapGestureRecognizer()
             ..onTap = () async {
               total = await getTotal();

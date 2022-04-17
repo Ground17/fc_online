@@ -401,8 +401,7 @@ class _MyChangeState extends State<DetailApp> {
 
   Widget _buildRow(Match cells) {
     DateTime matchDate = DateFormat('yyyy-MM-dd HH:mm:ss')
-        .parse(cells.matchDate.replaceFirst("T", " "))
-        .add(const Duration(hours: 9)); // 한국 시간 기준
+        .parse(cells.matchDate.replaceFirst("T", " ")); // 한국 시간 기준
 
     String scores = "";
 
@@ -500,7 +499,7 @@ class _MyChangeState extends State<DetailApp> {
                           : Colors.black),
                   recognizer: TapGestureRecognizer()
                     ..onTap = () {
-                      alert("상세 시간", cells.matchDate.replaceFirst("T", " "));
+                      alert("상세 시간", matchDate.toString());
                     },
               ),
           ),
