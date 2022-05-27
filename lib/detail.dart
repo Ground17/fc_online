@@ -405,18 +405,16 @@ class _MyChangeState extends State<DetailApp> {
 
     String scores = "";
 
-    if (cells.players[0].accessId == widget.id) {
+    if (cells.players.length > 1) {
       scores += cells.players[0].nickname + " ";
       scores += cells.players[0].goal.toString();
       scores += " : ";
       scores += cells.players[1].goal.toString();
       scores += " " + cells.players[1].nickname;
     } else {
-      scores += cells.players[1].nickname + " ";
-      scores += cells.players[1].goal.toString();
-      scores += " : ";
+      scores += cells.players[0].nickname + " ";
       scores += cells.players[0].goal.toString();
-      scores += " " + cells.players[0].nickname;
+      scores += " : 0";
     }
 
     final List<Widget> formations = [
