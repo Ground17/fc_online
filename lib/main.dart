@@ -61,9 +61,13 @@ class _MyHomePageState extends State<MyHomePage> {
   String _email = "";
   bool _isLoading = false;
   bool _isSpid = true;
+  bool _isTrade = false; // 트레이드 검색 통합
+  bool buy = true;
   String dir = "";
+  String last_modified = "";
 
   late File recent;
+  late File revised;
   late http.Response r;
   late int total = 0;
   late int current = 0;
@@ -74,7 +78,10 @@ class _MyHomePageState extends State<MyHomePage> {
   late Timer _timer;
   late Color _color = Colors.blueAccent;
 
-  List<dynamic> dropdownValues = [
+  List<dynamic> modeDropdownValues = ["전적 검색", "거래 검색"];
+  String modeDropdownValue = "전적 검색";
+
+  List<dynamic> typeDropdownValues = [
     {
       "matchtype": 30,
       "desc": "리그 친선"
@@ -96,8 +103,7 @@ class _MyHomePageState extends State<MyHomePage> {
       "desc": "공식 친선"
     }
   ];
-
-  String dropdownValue = "공식경기";
+  String typeDropdownValue = "공식경기";
 
   BannerAd bannerAd = Ads.createBannerAd();
 
@@ -128,9 +134,13 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _initFile() async {
+    r = await http
+        .head(Uri.parse("https://static.api.nexon.co.kr/fifaonline4/latest/spid.json"));
+
     dir = (await getApplicationDocumentsDirectory()).path;
 
     recent = File('$dir/recent.txt');
+    revised = File('$dir/revised.txt');
 
     spid = File('$dir/spid.json');
 
@@ -140,13 +150,14 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     players = jsonDecode(recent.readAsStringSync());
-
-    if (!await spid.exists()) {
+    if (!await revised.exists() || r.headers['last-modified'] != await revised.readAsString()) {
       // total = await getTotal();
       // setState(() {
       //   _isLoading = true;
       // });
       // await checkMetaInit();
+      last_modified = r.headers['last-modified'] ?? "";
+      print(last_modified);
       setState(() {
         _isSpid = false;
       });
@@ -172,33 +183,78 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  Widget _showDropDown() {
+  Widget _showSwitch() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(5.0, 5.0, 5.0, 5.0),
-      child: DropdownButton<String>(
-        value: dropdownValue,
-        icon: Icon(
-          Platform.isAndroid
-              ? Icons.arrow_downward
-              : CupertinoIcons.down_arrow,
-          color: Colors.white,
-        ),
-        iconSize: 24,
-        elevation: 16,
-        onChanged: (String? newValue) async {
-          setState(() {
-            dropdownValue = newValue!;
-          });
-        },
-        items: dropdownValues
-            .map<DropdownMenuItem<String>>((dynamic value) {
-          return DropdownMenuItem<String>(
-            value: value["desc"],
-            child: Text(
-              value["desc"],
+      padding: const EdgeInsets.all(5),
+      child: Row(
+        children: [
+          DropdownButton<String>(
+            value: modeDropdownValue,
+            icon: Icon(
+              Platform.isAndroid
+                  ? Icons.arrow_downward
+                  : CupertinoIcons.down_arrow,
+              color: Colors.white,
             ),
-          );
-        }).toList(),
+            iconSize: 24,
+            elevation: 16,
+            onChanged: (String? newValue) async {
+              setState(() {
+                modeDropdownValue = newValue!;
+                _isTrade = newValue == "거래 검색";
+              });
+            },
+            items: modeDropdownValues
+                .map<DropdownMenuItem<String>>((dynamic value) {
+              return DropdownMenuItem<String>(
+                value: value,
+                child: Text(
+                  value,
+                ),
+              );
+            }).toList(),
+          ),
+          Expanded(
+            child: Container(),
+          ),
+          !_isTrade ? DropdownButton<String>(
+            value: typeDropdownValue,
+            icon: Icon(
+              Platform.isAndroid
+                  ? Icons.arrow_downward
+                  : CupertinoIcons.down_arrow,
+              color: Colors.white,
+            ),
+            iconSize: 24,
+            elevation: 16,
+            onChanged: (String? newValue) async {
+              setState(() {
+                typeDropdownValue = newValue!;
+              });
+            },
+            items: typeDropdownValues
+                .map<DropdownMenuItem<String>>((dynamic value) {
+              return DropdownMenuItem<String>(
+                value: value["desc"],
+                child: Text(
+                  value["desc"],
+                ),
+              );
+            }).toList(),
+          ) : Row(
+            children: [
+              Text("모드: ${buy ? "구입" : "판매"}"),
+              Switch(
+                value: buy,
+                onChanged: (value) {
+                  setState(() {
+                    buy = value;
+                  });
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -234,24 +290,6 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  Widget _trade() {
-    return Padding(
-      padding: const EdgeInsets.all(0.0),
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(primary: Colors.white),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => TradeApp()),
-          );
-        },
-        child: const Text('거래 내역 조회',
-            style: TextStyle(fontSize: 20.0, color: Colors.teal)),
-      ),
-    );
-  }
-
   Widget _showDownload() {
     return RichText(
       textAlign: TextAlign.center,
@@ -261,7 +299,7 @@ class _MyHomePageState extends State<MyHomePage> {
           recognizer: TapGestureRecognizer()
             ..onTap = () async {
               total = await getTotal();
-              await checkMetaInit(option: true);
+              await checkMetaInit();
             }),
     );
   }
@@ -283,25 +321,36 @@ class _MyHomePageState extends State<MyHomePage> {
           }
           recent.writeAsStringSync(jsonEncode(players));
 
-          int _matchtype = 0;
+          if (_isTrade) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => TradeApp(
+                    id: get.accessId,
+                    nickname: get.nickname,
+                    buy: buy,
+                  )),
+            );
+          } else {
+            int _matchtype = 0;
 
-          for (int i = 0; i < dropdownValues.length; i++) {
-            if (dropdownValues[i]["desc"] == dropdownValue) {
-              _matchtype = dropdownValues[i]["matchtype"];
-              break;
+            for (int i = 0; i < typeDropdownValues.length; i++) {
+              if (typeDropdownValues[i]["desc"] == typeDropdownValue) {
+                _matchtype = typeDropdownValues[i]["matchtype"];
+                break;
+              }
             }
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => DetailApp(
+                    id: get.accessId,
+                    nickname: get.nickname,
+                    level: get.level,
+                    matchtype: _matchtype,
+                  )),
+            );
           }
-
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => DetailApp(
-                  id: get.accessId,
-                  nickname: get.nickname,
-                  level: get.level,
-                  matchtype: _matchtype,
-                )),
-          );
         } else {
           alert("구단주 정보가 없습니다. 닉네임을 다시 확인해주세요.");
         }
@@ -330,7 +379,7 @@ class _MyHomePageState extends State<MyHomePage> {
               padding: EdgeInsets.all(16.0),
               child: Text("${(current / 1048576).toStringAsFixed(2)}MB / ${(total / 1048576).toStringAsFixed(2)}MB (${current * 100 ~/ total}%)"),
             ),
-            Divider(),
+            const Divider(),
             mailDeveloper(),
           ]);
     }
@@ -365,12 +414,11 @@ class _MyHomePageState extends State<MyHomePage> {
           shrinkWrap: true,
           children: <Widget>[
             Center(
-              child: _showDropDown(),
+              child: _showSwitch(),
             ),
             _showEmailInput(),
             _isSpid ? Container() : _showDownload(),
             _submit(),
-            _trade(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: <Widget>[
@@ -436,19 +484,6 @@ class _MyHomePageState extends State<MyHomePage> {
           backgroundColor: Theme.of(context).primaryColor,
           title: Text(widget.title),
           actions: <Widget>[
-            !_isLoading
-                ? IconButton(
-              icon: const Icon(
-                Icons.download,
-                color: Colors.white,
-              ),
-              tooltip: "메타데이터 업데이트",
-              onPressed: () async {
-                total = await getTotal();
-                await checkMetaInit(option: true);
-              },
-            )
-                : Container(),
             !_isLoading
                 ? IconButton(
               icon: const Icon(
@@ -538,25 +573,37 @@ class _MyHomePageState extends State<MyHomePage> {
             recent.writeAsStringSync(jsonEncode(players));
             Navigator.of(_context).pop();
 
-            int _matchtype = 0;
+            if (_isTrade) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => TradeApp(
+                      id: cells[0],
+                      nickname: get.nickname,
+                      buy: buy,
+                    )),
+              );
+            } else {
+              int _matchtype = 0;
 
-            for (int i = 0; i < dropdownValues.length; i++) {
-              if (dropdownValues[i]["desc"] == dropdownValue) {
-                _matchtype = dropdownValues[i]["matchtype"];
-                break;
+              for (int i = 0; i < typeDropdownValues.length; i++) {
+                if (typeDropdownValues[i]["desc"] == typeDropdownValue) {
+                  _matchtype = typeDropdownValues[i]["matchtype"];
+                  break;
+                }
               }
-            }
 
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => DetailApp(
-                    id: cells[0],
-                    nickname: get.nickname,
-                    level: get.level,
-                    matchtype: _matchtype,
-                  )),
-            );
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => DetailApp(
+                      id: cells[0],
+                      nickname: get.nickname,
+                      level: get.level,
+                      matchtype: _matchtype,
+                    )),
+              );
+            }
           }
         });
       },
@@ -583,24 +630,20 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  Future<void> checkMetaInit({bool option = false}) async {
+  Future<void> checkMetaInit({bool option = true}) async {
     return showDialog<void>(
       context: context,
       barrierDismissible: option, // user must tap button!
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text(option ? "메타데이터를 업데이트하시겠습니까? 크기는 약 ${(total / 1048576).toStringAsFixed(2)}MB입니다." :
-          "더 나은 어플리케이션 사용을 위해 메타데이터를 다운로드하겠습니다. 크기는 약 ${(total / 1048576).toStringAsFixed(2)}MB이며, "
-              "다운로드하지 않을 시 어플을 이용할 수 없습니다."),
+          title: Text("메타데이터를 업데이트하시겠습니까? 크기는 약 ${(total / 1048576).toStringAsFixed(2)}MB입니다."),
           actions: <Widget>[
-            option
-                ? TextButton(
+            TextButton(
               child: const Text('취소'),
               onPressed: () {
                 Navigator.of(context).pop();
               },
-            )
-                : Container(),
+            ),
             TextButton(
               child: const Text('다운로드'),
               onPressed: () {
@@ -670,8 +713,13 @@ class _MyHomePageState extends State<MyHomePage> {
           current += d.length;
         });
       }, onDone: () async {
-        _isLoading = false;
-        _isSpid = true;
+        if (last_modified != "") {
+          revised.writeAsStringSync(last_modified);
+        }
+        setState(() {
+          _isLoading = false;
+          _isSpid = true;
+        });
       }, onError: (e) async {
         print(e);
         alert("다운로드 중 오류가 발생했습니다. 네트워크, 저장공간 등을 확인해주세요.");

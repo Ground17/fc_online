@@ -11,7 +11,11 @@ import 'dart:convert';
 import 'classes.dart';
 
 class TradeApp extends StatefulWidget {
-  TradeApp({Key? key}) : super(key: key);
+  TradeApp({Key? key, required this.id, required this.nickname, required this.buy}) : super(key: key);
+
+  String id;
+  String nickname;
+  bool buy;
 
   @override
   _MyChangeState createState() => _MyChangeState();
@@ -58,6 +62,11 @@ class _MyChangeState extends State<TradeApp> {
       }
     } catch (e) {
       print(e);
+    } finally {
+      _email = widget.nickname;
+      _id = widget.id;
+      buy = widget.buy;
+      await update();
     }
 
   }
@@ -91,6 +100,31 @@ class _MyChangeState extends State<TradeApp> {
     }
   }
 
+  Widget _showSwitch() {
+    return Padding(
+      padding: const EdgeInsets.all(5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(),
+          ),
+          Text("모드: ${buy ? "구입" : "판매"}"),
+          Switch(
+            value: buy,
+            onChanged: (value) async {
+              await update();
+              setState(() {
+                cells;
+                buy = value;
+                loading = false;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> addCells({number = 20}) async {
     List<dynamic> trades = await API.trades(this._id, buy: this.buy, offset: this.cells.length, limit: number);
 
@@ -106,85 +140,6 @@ class _MyChangeState extends State<TradeApp> {
         grade: trade['grade'],
         value: trade['value'],
       ));
-    }
-  }
-
-  Widget _showEmailInput() {
-    return Padding(
-      padding: const EdgeInsets.all(5),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextFormField(
-              maxLines: 1,
-              keyboardType: TextInputType.text,
-              autofocus: true,
-              decoration: InputDecoration(
-                  hintText: '닉네임',
-                  icon: Icon(
-                    Icons.account_box,
-                    color: Colors.teal[800],
-                  )),
-              validator: (value) => value!.isEmpty ? '닉네임을 입력해주세요.' : null,
-              onSaved: (value) => _email = value!,
-            ),
-          ),
-          Text("모드: ${buy ? "구입" : "판매"}"),
-          Switch(
-              value: buy,
-              onChanged: (value) {
-                setState(() {
-                  buy = value;
-                });
-              },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _submit() {
-    return Padding(
-      padding: const EdgeInsets.all(5),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(primary: Colors.teal[800],),
-          onPressed: _validateAndSubmit,
-          child: const Text('검색',
-              style: TextStyle(fontSize: 20.0, color: Colors.white)),
-        ),
-      ),
-    );
-  }
-
-  void _validateAndSubmit() async {
-    final form = _formKey.currentState;
-    if (form!.validate()) {
-      form.save();
-      setState(() {
-        loading = true;
-      });
-      await API.infoFromNickname(_email).then((get) async {
-        if (get.nickname != null) {
-          _id = get.accessId;
-          await update();
-          setState(() {
-            cells;
-            loading = false;
-          });
-        } else {
-          alert("알림", "구단주 정보가 없습니다. 닉네임을 다시 확인해주세요.");
-          setState(() {
-            loading = false;
-          });
-        }
-      }).catchError((e) {
-        alert("알림", "닉네임을 다시 확인해주세요.");
-        setState(() {
-          loading = false;
-        });
-      });
     }
   }
 
@@ -214,9 +169,9 @@ class _MyChangeState extends State<TradeApp> {
                 color: Colors.white),
             onPressed: () => Navigator.of(context).pop(),
           ),
-          title: Text(
+          title: const Text(
             "거래 내역 조회",
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -243,8 +198,7 @@ class _MyChangeState extends State<TradeApp> {
             key: _formKey,
             child: Column(
               children: <Widget>[
-                _showEmailInput(),
-                _submit(),
+                _showSwitch(),
                 Expanded(
                   child: !loading ? RefreshIndicator(
                     child: ListView.builder(

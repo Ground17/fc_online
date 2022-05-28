@@ -26,3 +26,4 @@ Flutter application 입니다.
 
 - Response Headers에서 이 서비스에 사용하는 데이터
     - Content-Length: 112721304 -> 메타데이터 다운로드 받을 때 전체 크기 추정, byte 단위이므로 1048576(=2^20)으로 나눠 메가바이트(MB) 단위로 바꿔줄 수 있음.
+    - last-modified: Thu, 26 May 2022 06:00:23 GMT -> 메타데이터가 최근 다운받은 버전으로부터 변경되었는지 확인하여 변경될 때만 다운로드 체크
