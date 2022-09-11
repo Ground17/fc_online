@@ -68,7 +68,6 @@ class _MyChangeState extends State<TradeApp> {
       buy = widget.buy;
       await update();
     }
-
   }
 
   @override
@@ -169,9 +168,9 @@ class _MyChangeState extends State<TradeApp> {
                 color: Colors.white),
             onPressed: () => Navigator.of(context).pop(),
           ),
-          title: const Text(
-            "거래 내역 조회",
-            style: TextStyle(
+          title: Text(
+            "${widget.nickname}의 거래 내역",
+            style: const TextStyle(
               fontWeight: FontWeight.bold,
             ),
           ),

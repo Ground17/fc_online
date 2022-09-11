@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -68,6 +70,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   late File recent;
   late File revised;
+  late File noMeta;
   late http.Response r;
   late int total = 0;
   late int current = 0;
@@ -77,9 +80,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
   late Timer _timer;
   late Color _color = Colors.blueAccent;
+  late dynamic spid_json;
 
-  List<dynamic> modeDropdownValues = ["전적 검색", "거래 검색"];
-  String modeDropdownValue = "전적 검색";
+  // List<dynamic> modeDropdownValues = ["전적 검색", "거래 내역 검색"];
+  // String modeDropdownValue = "전적 검색";
 
   List<dynamic> typeDropdownValues = [
     {
@@ -104,6 +108,9 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   ];
   String typeDropdownValue = "공식경기";
+
+  List<int> randomProfile = [0, 0];
+  int _selectedIndex = 0;
 
   BannerAd bannerAd = Ads.createBannerAd();
 
@@ -141,8 +148,17 @@ class _MyHomePageState extends State<MyHomePage> {
 
     recent = File('$dir/recent.txt');
     revised = File('$dir/revised.txt');
+    noMeta = File('$dir/noMeta.txt');
 
     spid = File('$dir/spid.json');
+
+    if (await AppTrackingTransparency.trackingAuthorizationStatus ==
+        TrackingStatus.notDetermined) {
+      // Wait for dialog popping animation
+      await Future.delayed(const Duration(milliseconds: 200));
+      // Request system's tracking authorization dialog
+      await AppTrackingTransparency.requestTrackingAuthorization();
+    }
 
     if (!await recent.exists()) {
       players = [];
@@ -157,22 +173,34 @@ class _MyHomePageState extends State<MyHomePage> {
       // });
       // await checkMetaInit();
       last_modified = r.headers['last-modified'] ?? "";
-      print(last_modified);
+
       setState(() {
         _isSpid = false;
       });
+
+      if (!await revised.exists() && !await noMeta.exists()) {
+        total = await getTotal();
+        noticeMeta();
+      }
     } else {
       setState(() {
         _isSpid = true;
       });
+      getRandomImage();
     }
+  }
 
-    if (await AppTrackingTransparency.trackingAuthorizationStatus ==
-        TrackingStatus.notDetermined) {
-      // Wait for dialog popping animation
-      await Future.delayed(const Duration(milliseconds: 200));
-      // Request system's tracking authorization dialog
-      await AppTrackingTransparency.requestTrackingAuthorization();
+  void getRandomImage() {
+    try {
+      spid_json = jsonDecode(File('$dir/spid.json').readAsStringSync());
+
+      setState(() {
+        randomProfile[0] = spid_json[Random().nextInt(spid_json.length)]['id'];
+        randomProfile[1] = spid_json[Random().nextInt(spid_json.length)]['id'];
+      });
+
+    } catch (e) {
+      print(e);
     }
   }
 
@@ -188,31 +216,9 @@ class _MyHomePageState extends State<MyHomePage> {
       padding: const EdgeInsets.all(5),
       child: Row(
         children: [
-          DropdownButton<String>(
-            value: modeDropdownValue,
-            icon: Icon(
-              Platform.isAndroid
-                  ? Icons.arrow_downward
-                  : CupertinoIcons.down_arrow,
-              color: Colors.white,
-            ),
-            iconSize: 24,
-            elevation: 16,
-            onChanged: (String? newValue) async {
-              setState(() {
-                modeDropdownValue = newValue!;
-                _isTrade = newValue == "거래 검색";
-              });
-            },
-            items: modeDropdownValues
-                .map<DropdownMenuItem<String>>((dynamic value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(
-                  value,
-                ),
-              );
-            }).toList(),
+          Text(
+            "모드: ${_isTrade ? '거래 검색' : '전적 검색'}",
+            style: const TextStyle(fontSize: 20),
           ),
           Expanded(
             child: Container(),
@@ -243,7 +249,7 @@ class _MyHomePageState extends State<MyHomePage> {
             }).toList(),
           ) : Row(
             children: [
-              Text("모드: ${buy ? "구입" : "판매"}"),
+              Text(buy ? "구입" : "판매"),
               Switch(
                 value: buy,
                 onChanged: (value) {
@@ -294,13 +300,50 @@ class _MyHomePageState extends State<MyHomePage> {
     return RichText(
       textAlign: TextAlign.center,
       text: TextSpan(
-          text: "선수 정보 표시 등을 위해선 메타데이터 다운로드가 필요합니다. 여기를 눌러 다운로드할 수 있습니다.",
-          style: TextStyle(color: _color),
+          text: "메타데이터 업데이트가 있습니다. 여기를 눌러 다운로드할 수 있습니다.",
+          style: TextStyle(color: _color, fontSize: 20),
           recognizer: TapGestureRecognizer()
             ..onTap = () async {
               total = await getTotal();
               await checkMetaInit();
             }),
+    );
+  }
+
+  Widget _showProfile() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Image.network(
+          'https://fo4.dn.nexoncdn.co.kr/live/externalAssets/common/players/p${randomProfile[0] % 1000000}.png',
+          fit: BoxFit.cover, // Fixes border issues
+          width: 100,
+          height: 100,
+          errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
+            return Image.asset(
+              'assets/person.png',
+              fit: BoxFit.cover, // Fixes border issues
+              width: 100,
+              height: 100,
+            );
+          },
+        ),
+        Image.network(
+          'https://fo4.dn.nexoncdn.co.kr/live/externalAssets/common/players/p${randomProfile[1] % 1000000}.png',
+          fit: BoxFit.cover, // Fixes border issues
+          width: 100,
+          height: 100,
+          errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
+            return Image.asset(
+              'assets/person.png',
+              fit: BoxFit.cover, // Fixes border issues
+              width: 100,
+              height: 100,
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -417,7 +460,6 @@ class _MyHomePageState extends State<MyHomePage> {
               child: _showSwitch(),
             ),
             _showEmailInput(),
-            _isSpid ? Container() : _showDownload(),
             _submit(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -442,12 +484,12 @@ class _MyHomePageState extends State<MyHomePage> {
                   child: RichText(
                     textAlign: TextAlign.center,
                     text: TextSpan(
-                        text: "축구장 사진 출처",
+                        text: "축구장 그림 출처",
                         style: const TextStyle(color: Colors.blue),
                         recognizer: TapGestureRecognizer()
                           ..onTap = () async {
                             const url =
-                                'https://blog.stockclub.kr/entry/%EC%B6%95%EA%B5%AC%EC%9E%A5%EC%9D%98-%ED%81%AC%EA%B8%B0%EB%8A%94-%EB%AA%A8%EB%91%90-%EB%8B%A4%EB%A5%B4%EB%8B%A4-EPL-%EB%B9%856%EB%A1%9C-%EC%95%8C%EC%95%84%EB%B3%B8-%EC%B6%95%EA%B5%AC-%EA%B2%BD%EA%B8%B0%EC%9E%A5';
+                                'https://blog.kakaocdn.net/dn/bSDvQf/btq1R8DUNDi/LfNbRFnPZCVDL9WVsTlbg1/img.png';
                             if (await canLaunch(url)) {
                               await launch(url);
                             }
@@ -457,13 +499,7 @@ class _MyHomePageState extends State<MyHomePage> {
               ],
             ),
             const Divider(),
-            const Text(
-              "Data based on NEXON DEVELOPERS\n\n"
-                  "이 어플은 NEXON 공식이 아닌 제3자가 개발/배포한 어플입니다.",
-              textAlign: TextAlign.center,
-            ),
-            const Divider(),
-            mailDeveloper(),
+            _isSpid ? _showProfile() : _showDownload(),
             const Divider(),
             Container(
               alignment: Alignment.center,
@@ -471,6 +507,14 @@ class _MyHomePageState extends State<MyHomePage> {
               width: bannerAd.size.width.toDouble(),
               height: bannerAd.size.height.toDouble(),
             ),
+            const Divider(),
+            const Text(
+              "Data based on NEXON DEVELOPERS\n\n"
+                  "이 어플은 NEXON 공식이 아닌 제3자가 개발/배포한 어플입니다.",
+              textAlign: TextAlign.center,
+            ),
+            const Divider(),
+            mailDeveloper(),
           ],
         ),
       ),
@@ -501,8 +545,29 @@ class _MyHomePageState extends State<MyHomePage> {
                 : Container(),
           ],
         ),
+        bottomNavigationBar: BottomNavigationBar(
+          items: const <BottomNavigationBarItem>[
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: '전적 검색',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.account_box),
+              label: '거래 검색',
+            ),
+          ],
+          currentIndex: _selectedIndex,
+          selectedItemColor: Colors.teal[800],
+          onTap: (index) {
+            setState(() {
+              _isTrade = index == 1;
+              _selectedIndex = index;
+            });
+          },
+        ),
         body:
-        _isLoading ? Center(child: _showCircularProgress()) : _showBody());
+        _isLoading ? Center(child: _showCircularProgress()) : _showBody()
+    );
   }
 
   Future<void> showRecent() async {
@@ -606,6 +671,40 @@ class _MyHomePageState extends State<MyHomePage> {
             }
           }
         });
+      },
+    );
+  }
+
+  Future<void> noticeMeta() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("선수 이름, 선수 시즌 표시 등을 위해서는 추가 메타데이터 다운로드가 필요합니다. 크기는 약 ${(total / 1048576).toStringAsFixed(2)}MB입니다. 다운로드하시겠습니까?"),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('다시 보지 않기'),
+              onPressed: () {
+                noMeta.writeAsStringSync("");
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('나중에'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('다운로드'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                download1();
+              },
+            ),
+          ],
+        );
       },
     );
   }
@@ -720,6 +819,7 @@ class _MyHomePageState extends State<MyHomePage> {
           _isLoading = false;
           _isSpid = true;
         });
+        getRandomImage();
       }, onError: (e) async {
         print(e);
         alert("다운로드 중 오류가 발생했습니다. 네트워크, 저장공간 등을 확인해주세요.");

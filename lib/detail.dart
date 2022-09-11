@@ -258,7 +258,7 @@ class _MyChangeState extends State<DetailApp> {
             onPressed: () => Navigator.of(context).pop(),
           ),
           title: Text(
-            widget.nickname,
+            "${widget.nickname}의 전적",
             style: const TextStyle(
               fontWeight: FontWeight.bold,
             ),
